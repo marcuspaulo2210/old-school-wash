@@ -171,4 +171,29 @@
     color: hsl(var(--success-foreground));
     border-color: hsl(var(--success));
   }
+
+  .btn-qty {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    font-family: 'Courier Prime', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    color: hsl(var(--destructive));
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-qty:active {
+    background: hsl(var(--secondary));
+  }
+
+  .btn-qty-plus {
+    color: hsl(var(--success));
+  }
 }
