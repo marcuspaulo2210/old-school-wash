@@ -14,16 +14,225 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          observation: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          observation?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          observation?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      clothing_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          unit: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          unit?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          unit?: string
+        }
+        Relationships: []
+      }
+      lots: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          finalized_at: string | null
+          id: string
+          lot_number: number
+          notes: string | null
+          status: Database["public"]["Enums"]["lot_status"]
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          finalized_at?: string | null
+          id?: string
+          lot_number?: number
+          notes?: string | null
+          status?: Database["public"]["Enums"]["lot_status"]
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          finalized_at?: string | null
+          id?: string
+          lot_number?: number
+          notes?: string | null
+          status?: Database["public"]["Enums"]["lot_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lots_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      packaging_entries: {
+        Row: {
+          clothing_type_id: string
+          created_at: string
+          id: string
+          lot_id: string
+          quantity_packed: number
+          updated_at: string
+        }
+        Insert: {
+          clothing_type_id: string
+          created_at?: string
+          id?: string
+          lot_id: string
+          quantity_packed?: number
+          updated_at?: string
+        }
+        Update: {
+          clothing_type_id?: string
+          created_at?: string
+          id?: string
+          lot_id?: string
+          quantity_packed?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packaging_entries_clothing_type_id_fkey"
+            columns: ["clothing_type_id"]
+            isOneToOne: false
+            referencedRelation: "clothing_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packaging_entries_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_entries: {
+        Row: {
+          clothing_type_id: string
+          created_at: string
+          id: string
+          lot_id: string
+          mesa: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          clothing_type_id: string
+          created_at?: string
+          id?: string
+          lot_id: string
+          mesa: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          clothing_type_id?: string
+          created_at?: string
+          id?: string
+          lot_id?: string
+          mesa?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_entries_clothing_type_id_fkey"
+            columns: ["clothing_type_id"]
+            isOneToOne: false
+            referencedRelation: "clothing_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_entries_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "producao"
+      lot_status: "em_producao" | "finalizado" | "conferido"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +359,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "producao"],
+      lot_status: ["em_producao", "finalizado", "conferido"],
+    },
   },
 } as const
