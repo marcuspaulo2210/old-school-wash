@@ -49,7 +49,7 @@ const Historico = () => {
             <tbody>
               {sorted.map((c) => {
                 const total = Object.values(c.quantities).reduce(
-                  (s, v) => s + (v || 0),
+                  (s: number, v: unknown) => s + (Number(v) || 0),
                   0
                 );
                 return (

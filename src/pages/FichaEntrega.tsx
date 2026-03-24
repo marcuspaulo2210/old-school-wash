@@ -27,11 +27,11 @@ const FichaEntrega = () => {
   };
 
   const totalColetado = Object.values(collection.quantities).reduce(
-    (s, v) => s + (v || 0),
+    (s: number, v: unknown) => s + (Number(v) || 0),
     0
   );
   const totalEntregue = Object.values(delivered).reduce(
-    (s, v) => s + (v || 0),
+    (s: number, v: unknown) => s + (Number(v) || 0),
     0
   );
 
