@@ -3,22 +3,40 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
-  const { signIn } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setLoading(true);
-    const { error } = await signIn(email, password);
-    if (error) {
-      setError("Email ou senha incorretos.");
+
+    if (isSignUp) {
+      const { error } = await signUp(email, password);
+      if (error) {
+        setError("Erro ao criar conta. Tente novamente.");
+      } else {
+        setSuccess("Conta criada! Entrando...");
+        // Auto-confirm is on, so sign in immediately
+        const { error: signInError } = await signIn(email, password);
+        if (!signInError) {
+          navigate("/admin");
+        }
+      }
     } else {
-      navigate("/");
+      const { error } = await signIn(email, password);
+      if (error) {
+        setError("Email ou senha incorretos.");
+      } else {
+        navigate("/admin");
+      }
     }
     setLoading(false);
   };
@@ -59,13 +77,22 @@ const Login = () => {
           </div>
 
           {error && <p className="text-destructive text-xs text-center">{error}</p>}
+          {success && <p className="text-green-600 text-xs text-center">{success}</p>}
 
           <button
             type="submit"
             disabled={loading}
             className="btn-paper btn-paper-primary w-full"
           >
-            {loading ? "ENTRANDO..." : "ENTRAR"}
+            {loading ? (isSignUp ? "CRIANDO..." : "ENTRANDO...") : (isSignUp ? "CRIAR CONTA" : "ENTRAR")}
+          </button>
+
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline w-full text-center"
+            onClick={() => { setIsSignUp(!isSignUp); setError(""); setSuccess(""); }}
+          >
+            {isSignUp ? "Já tem conta? Entrar" : "Criar nova conta"}
           </button>
         </form>
 
