@@ -77,13 +77,22 @@ const Login = () => {
           </div>
 
           {error && <p className="text-destructive text-xs text-center">{error}</p>}
+          {success && <p className="text-green-600 text-xs text-center">{success}</p>}
 
           <button
             type="submit"
             disabled={loading}
             className="btn-paper btn-paper-primary w-full"
           >
-            {loading ? "ENTRANDO..." : "ENTRAR"}
+            {loading ? (isSignUp ? "CRIANDO..." : "ENTRANDO...") : (isSignUp ? "CRIAR CONTA" : "ENTRAR")}
+          </button>
+
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline w-full text-center"
+            onClick={() => { setIsSignUp(!isSignUp); setError(""); setSuccess(""); }}
+          >
+            {isSignUp ? "Já tem conta? Entrar" : "Criar nova conta"}
           </button>
         </form>
 
