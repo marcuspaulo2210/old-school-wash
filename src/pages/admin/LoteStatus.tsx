@@ -2,34 +2,15 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-interface ClothingType {
-  id: string;
-  name: string;
-  unit: string;
-  sort_order: number;
-}
-
-interface ProductionEntry {
-  clothing_type_id: string;
-  mesa: string;
-  quantity: number;
-}
-
-interface PackagingEntry {
-  clothing_type_id: string;
-  quantity_packed: number;
-}
+interface ClothingType { id: string; name: string; unit: string; sort_order: number; }
+interface ProductionEntry { clothing_type_id: string; mesa: string; quantity: number; }
+interface PackagingEntry { clothing_type_id: string; quantity_packed: number; }
 
 const LoteStatus = () => {
   const { lotId } = useParams<{ lotId: string }>();
   const navigate = useNavigate();
 
-  const [lotInfo, setLotInfo] = useState<{
-    lot_number: number;
-    status: string;
-    clientName: string;
-    created_at: string;
-  } | null>(null);
+  const [lotInfo, setLotInfo] = useState<{ lot_number: number; status: string; clientName: string; created_at: string } | null>(null);
   const [clothingTypes, setClothingTypes] = useState<ClothingType[]>([]);
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
   const [packaging, setPackaging] = useState<PackagingEntry[]>([]);
@@ -45,12 +26,7 @@ const LoteStatus = () => {
 
       if (lotRes.data) {
         const client = lotRes.data.clients as unknown as { name: string } | null;
-        setLotInfo({
-          lot_number: lotRes.data.lot_number,
-          status: lotRes.data.status,
-          clientName: client?.name || "—",
-          created_at: lotRes.data.created_at,
-        });
+        setLotInfo({ lot_number: lotRes.data.lot_number, status: lotRes.data.status, clientName: client?.name || "—", created_at: lotRes.data.created_at });
       }
       setClothingTypes(typesRes.data || []);
       setEntries((entriesRes.data as ProductionEntry[]) || []);
@@ -59,16 +35,14 @@ const LoteStatus = () => {
     fetchData();
   }, [lotId]);
 
-  // Aggregate quantities by clothing type
   const aggregated = useMemo(() => {
-    const map: Record<string, { produced: number; packed: number; byMesa: Record<string, number> }> = {};
+    const map: Record<string, { produced: number; packed: number }> = {};
     entries.forEach((e) => {
-      if (!map[e.clothing_type_id]) map[e.clothing_type_id] = { produced: 0, packed: 0, byMesa: {} };
+      if (!map[e.clothing_type_id]) map[e.clothing_type_id] = { produced: 0, packed: 0 };
       map[e.clothing_type_id].produced += e.quantity;
-      map[e.clothing_type_id].byMesa[e.mesa] = (map[e.clothing_type_id].byMesa[e.mesa] || 0) + e.quantity;
     });
     packaging.forEach((p) => {
-      if (!map[p.clothing_type_id]) map[p.clothing_type_id] = { produced: 0, packed: 0, byMesa: {} };
+      if (!map[p.clothing_type_id]) map[p.clothing_type_id] = { produced: 0, packed: 0 };
       map[p.clothing_type_id].packed += p.quantity_packed;
     });
     return map;
@@ -80,127 +54,120 @@ const LoteStatus = () => {
 
   const handleFinalize = async () => {
     if (totalProduced > 0 && totalPacked < totalProduced) {
-      const justification = window.prompt("Há peças pendentes. Informe a justificativa para finalizar:");
+      const justification = window.prompt("Há peças pendentes. Informe a justificativa:");
       if (!justification) return;
-      await supabase.from("lots").update({
-        status: "finalizado" as const,
-        finalized_at: new Date().toISOString(),
-        notes: justification,
-      }).eq("id", lotId!);
+      await supabase.from("lots").update({ status: "finalizado" as const, finalized_at: new Date().toISOString(), notes: justification }).eq("id", lotId!);
     } else {
-      await supabase.from("lots").update({
-        status: "finalizado" as const,
-        finalized_at: new Date().toISOString(),
-      }).eq("id", lotId!);
+      await supabase.from("lots").update({ status: "finalizado" as const, finalized_at: new Date().toISOString() }).eq("id", lotId!);
     }
     navigate("/admin");
   };
 
   if (!lotInfo) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Carregando...</p>
-      </div>
-    );
+    return <div className="app-container flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   }
 
+  const statusBadge = (s: string) => {
+    switch (s) {
+      case "em_producao": return <span className="badge-primary">Em produção</span>;
+      case "finalizado": return <span className="badge-warning">Finalizado</span>;
+      case "conferido": return <span className="badge-success">Conferido</span>;
+      default: return <span className="badge-neutral">{s}</span>;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background p-2 pb-8">
-      <div className="paper-sheet p-4 mb-4">
-        <div className="text-center mb-4 border-b border-foreground pb-3">
-          <h1 className="text-lg font-bold tracking-wide">AMANÁ</h1>
-          <p className="text-xs text-muted-foreground">STATUS DO LOTE</p>
-        </div>
-
-        <div className="space-y-1 mb-4 text-sm">
-          <p><span className="font-bold">Cliente:</span> {lotInfo.clientName}</p>
-          <p><span className="font-bold">Lote:</span> #{lotInfo.lot_number}</p>
-          <p><span className="font-bold">Data:</span> {new Date(lotInfo.created_at).toLocaleDateString("pt-BR")}</p>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mb-4 border border-border p-3">
-          <div className="flex justify-between text-xs font-bold mb-1">
-            <span>PROGRESSO DA EMBALAGEM</span>
-            <span>{progressPercent}%</span>
+    <div className="app-container">
+      <div className="app-header">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="app-header-title">Lote #{lotInfo.lot_number}</h1>
+            <p className="app-header-subtitle">{lotInfo.clientName} · {new Date(lotInfo.created_at).toLocaleDateString("pt-BR")}</p>
           </div>
-          <div className="w-full bg-secondary h-4 border border-border">
+          {statusBadge(lotInfo.status)}
+        </div>
+      </div>
+
+      <div className="page-content animate-fade-in">
+        {/* Progress */}
+        <div className="app-card-elevated mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm font-bold text-foreground">Progresso da embalagem</p>
+            <span className="text-lg font-extrabold text-primary">{progressPercent}%</span>
+          </div>
+          <div className="progress-track">
             <div
-              className="h-full transition-all"
+              className="progress-fill"
               style={{
                 width: `${progressPercent}%`,
-                backgroundColor: progressPercent === 100
-                  ? "hsl(var(--success))"
-                  : "hsl(var(--primary))",
+                backgroundColor: progressPercent === 100 ? "hsl(var(--success))" : "hsl(var(--primary))",
               }}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-            <span>Produzido: {totalProduced} peças</span>
-            <span>Embalado: {totalPacked} peças</span>
+          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+            <span>Produzido: {totalProduced}</span>
+            <span>Embalado: {totalPacked}</span>
           </div>
           {totalProduced > totalPacked && totalProduced > 0 && (
-            <p className="text-destructive text-xs font-bold mt-2 text-center">
-              ⚠ FALTAM {totalProduced - totalPacked} PEÇAS
-            </p>
+            <div className="mt-3 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold px-4 py-2 text-center">
+              ⚠ Faltam {totalProduced - totalPacked} peças
+            </div>
           )}
           {totalProduced > 0 && totalPacked >= totalProduced && (
-            <p className="text-xs font-bold mt-2 text-center" style={{ color: "hsl(var(--success))" }}>
-              ✓ PACOTE COMPLETO
-            </p>
+            <div className="mt-3 rounded-xl bg-success/10 text-success text-sm font-semibold px-4 py-2 text-center">
+              ✓ Pacote completo
+            </div>
           )}
         </div>
 
         {/* Detail table */}
-        <table className="paper-table">
-          <thead>
-            <tr>
-              <th className="text-left" style={{ width: "40%" }}>Tipo</th>
-              <th style={{ width: "20%" }}>Produzido</th>
-              <th style={{ width: "20%" }}>Embalado</th>
-              <th style={{ width: "20%" }}>Faltam</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clothingTypes.map((type) => {
-              const data = aggregated[type.id];
-              if (!data || data.produced === 0) return null;
-              const faltam = data.produced - data.packed;
-              return (
-                <tr key={type.id}>
-                  <td className="text-left text-xs">{type.name}</td>
-                  <td className="text-center text-sm font-bold">{data.produced}</td>
-                  <td className="text-center text-sm">{data.packed}</td>
-                  <td className={`text-center text-sm font-bold ${faltam > 0 ? "text-destructive" : ""}`}>
-                    {faltam}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td className="text-right font-bold text-xs">TOTAL</td>
-              <td className="text-center font-bold">{totalProduced}</td>
-              <td className="text-center font-bold">{totalPacked}</td>
-              <td className="text-center font-bold">{totalProduced - totalPacked}</td>
-            </tr>
-          </tfoot>
-        </table>
+        <div className="app-card overflow-hidden">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th className="text-center">Produzido</th>
+                <th className="text-center">Embalado</th>
+                <th className="text-center">Faltam</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clothingTypes.map((type) => {
+                const data = aggregated[type.id];
+                if (!data || data.produced === 0) return null;
+                const faltam = data.produced - data.packed;
+                return (
+                  <tr key={type.id}>
+                    <td className="text-sm font-medium">{type.name}</td>
+                    <td className="text-center font-bold">{data.produced}</td>
+                    <td className="text-center">{data.packed}</td>
+                    <td className={`text-center font-bold ${faltam > 0 ? "text-destructive" : "text-success"}`}>
+                      {faltam > 0 ? faltam : "✓"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="text-right font-bold text-xs uppercase">Total</td>
+                <td className="text-center font-bold">{totalProduced}</td>
+                <td className="text-center font-bold">{totalPacked}</td>
+                <td className="text-center font-bold">{totalProduced - totalPacked}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
 
-        <div className="flex gap-3 mt-6 justify-center flex-wrap">
-          <button className="btn-paper text-xs" onClick={() => navigate("/admin")}>
-            ← VOLTAR
-          </button>
-          <button
-            className="btn-paper text-xs"
-            onClick={() => navigate(`/admin/lote/${lotId}/embalar`)}
-          >
-            EMBALAR
+        {/* Actions */}
+        <div className="flex gap-3 mt-6 flex-wrap">
+          <button className="btn-ghost flex-1" onClick={() => navigate("/admin")}>← Voltar</button>
+          <button className="btn-secondary flex-1" onClick={() => navigate(`/admin/lote/${lotId}/embalar`)}>
+            📦 Embalar
           </button>
           {lotInfo.status === "em_producao" && (
-            <button className="btn-paper btn-paper-success" onClick={handleFinalize}>
-              FINALIZAR LOTE
+            <button className="btn-success flex-1" onClick={handleFinalize}>
+              ✓ Finalizar
             </button>
           )}
         </div>

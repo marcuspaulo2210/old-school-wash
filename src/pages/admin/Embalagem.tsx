@@ -2,29 +2,15 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-interface ClothingType {
-  id: string;
-  name: string;
-  unit: string;
-  sort_order: number;
-}
-
-interface AggregatedProd {
-  [clothingTypeId: string]: number;
-}
-
-interface PackagingEntry {
-  id: string;
-  clothing_type_id: string;
-  quantity_packed: number;
-}
+interface ClothingType { id: string; name: string; unit: string; sort_order: number; }
+interface PackagingEntry { id: string; clothing_type_id: string; quantity_packed: number; }
 
 const Embalagem = () => {
   const { lotId } = useParams<{ lotId: string }>();
   const navigate = useNavigate();
 
   const [clothingTypes, setClothingTypes] = useState<ClothingType[]>([]);
-  const [produced, setProduced] = useState<AggregatedProd>({});
+  const [produced, setProduced] = useState<Record<string, number>>({});
   const [packEntries, setPackEntries] = useState<PackagingEntry[]>([]);
   const [packed, setPacked] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
@@ -43,20 +29,16 @@ const Embalagem = () => {
       setClothingTypes(typesRes.data || []);
       setLotNumber(lotRes.data?.lot_number || 0);
 
-      // Aggregate production
-      const prodMap: AggregatedProd = {};
+      const prodMap: Record<string, number> = {};
       (entriesRes.data || []).forEach((e: { clothing_type_id: string; quantity: number }) => {
         prodMap[e.clothing_type_id] = (prodMap[e.clothing_type_id] || 0) + e.quantity;
       });
       setProduced(prodMap);
 
-      // Packaging entries
       const pEntries = (packRes.data as PackagingEntry[]) || [];
       setPackEntries(pEntries);
       const packMap: Record<string, number> = {};
-      pEntries.forEach((p) => {
-        packMap[p.clothing_type_id] = p.quantity_packed;
-      });
+      pEntries.forEach((p) => { packMap[p.clothing_type_id] = p.quantity_packed; });
       setPacked(packMap);
     };
     fetchData();
@@ -76,20 +58,12 @@ const Embalagem = () => {
     for (const type of clothingTypes) {
       const qty = packed[type.id] || 0;
       const existing = packEntries.find((e) => e.clothing_type_id === type.id);
-
       if (existing) {
-        if (qty !== existing.quantity_packed) {
-          await supabase.from("packaging_entries").update({ quantity_packed: qty }).eq("id", existing.id);
-        }
+        if (qty !== existing.quantity_packed) await supabase.from("packaging_entries").update({ quantity_packed: qty }).eq("id", existing.id);
       } else if (qty > 0) {
-        await supabase.from("packaging_entries").insert({
-          lot_id: lotId!,
-          clothing_type_id: type.id,
-          quantity_packed: qty,
-        });
+        await supabase.from("packaging_entries").insert({ lot_id: lotId!, clothing_type_id: type.id, quantity_packed: qty });
       }
     }
-
     const { data } = await supabase.from("packaging_entries").select("*").eq("lot_id", lotId!);
     setPackEntries((data as PackagingEntry[]) || []);
     setSaving(false);
@@ -104,81 +78,81 @@ const Embalagem = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-2 pb-8">
-      <div className="paper-sheet p-4 mb-4">
-        <div className="text-center mb-4 border-b border-foreground pb-3">
-          <h1 className="text-lg font-bold tracking-wide">AMANÁ</h1>
-          <p className="text-xs text-muted-foreground">CONFERÊNCIA / EMBALAGEM</p>
-          <p className="text-sm font-bold mt-1">LOTE #{lotNumber}</p>
+    <div className="app-container">
+      <div className="app-header">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="app-header-title">Embalagem</h1>
+          <p className="app-header-subtitle">Lote #{lotNumber} · Conferência</p>
         </div>
+      </div>
 
-        <table className="paper-table">
-          <thead>
-            <tr>
-              <th className="text-left" style={{ width: "40%" }}>Tipo</th>
-              <th style={{ width: "20%" }}>Produzido</th>
-              <th style={{ width: "20%" }}>Embalado</th>
-              <th style={{ width: "20%" }}>Dif.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clothingTypes.map((type) => {
-              const prod = produced[type.id] || 0;
-              if (prod === 0) return null;
-              const pack = packed[type.id] || 0;
-              const diff = prod - pack;
-              return (
-                <tr key={type.id}>
-                  <td className="text-left text-xs">{type.name}</td>
-                  <td className="text-center text-sm font-bold">{prod}</td>
-                  <td>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      className="paper-input"
-                      value={packed[type.id] || ""}
-                      onChange={(e) => handleChange(type.id, e.target.value)}
-                    />
-                  </td>
-                  <td className={`text-center text-sm font-bold ${diff > 0 ? "text-destructive" : diff < 0 ? "text-primary" : ""}`}>
-                    {diff !== 0 ? diff : "✓"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td className="text-right font-bold text-xs">TOTAL</td>
-              <td className="text-center font-bold">{totalProd}</td>
-              <td className="text-center font-bold">{totalPacked}</td>
-              <td className="text-center font-bold">{totalProd - totalPacked}</td>
-            </tr>
-          </tfoot>
-        </table>
-
+      <div className="page-content animate-fade-in">
+        {/* Summary */}
         {totalProd !== totalPacked && totalProd > 0 && (
-          <p className="text-destructive text-xs font-bold mt-3 text-center border border-destructive p-2">
-            ⚠ DIVERGÊNCIA: {Math.abs(totalProd - totalPacked)} peças
-          </p>
+          <div className="rounded-2xl bg-destructive/10 text-destructive text-sm font-semibold px-4 py-3 text-center mb-4">
+            ⚠ Divergência: {Math.abs(totalProd - totalPacked)} peças
+          </div>
         )}
 
-        <div className="flex gap-3 mt-6 justify-center flex-wrap">
-          <button className="btn-paper text-xs" onClick={() => navigate(`/admin/lote/${lotId}`)}>
-            ← VOLTAR
-          </button>
-          <button
-            className={`btn-paper ${saved ? "btn-paper-success" : ""}`}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "SALVANDO..." : saved ? "✓ SALVO" : "SALVAR"}
-          </button>
-          <button className="btn-paper btn-paper-success" onClick={handleConfirm}>
-            CONFIRMAR EMBALAGEM
-          </button>
+        {/* Table */}
+        <div className="app-card overflow-hidden">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th className="text-center">Produzido</th>
+                <th className="text-center">Embalado</th>
+                <th className="text-center">Dif.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clothingTypes.map((type) => {
+                const prod = produced[type.id] || 0;
+                if (prod === 0) return null;
+                const pack = packed[type.id] || 0;
+                const diff = prod - pack;
+                return (
+                  <tr key={type.id}>
+                    <td className="text-sm font-medium">{type.name}</td>
+                    <td className="text-center font-bold">{prod}</td>
+                    <td className="text-center">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        className="qty-input w-16 mx-auto"
+                        value={packed[type.id] || ""}
+                        onChange={(e) => handleChange(type.id, e.target.value)}
+                      />
+                    </td>
+                    <td className={`text-center font-bold ${diff > 0 ? "text-destructive" : diff < 0 ? "text-primary" : "text-success"}`}>
+                      {diff !== 0 ? diff : "✓"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="text-right font-bold text-xs uppercase">Total</td>
+                <td className="text-center font-bold">{totalProd}</td>
+                <td className="text-center font-bold">{totalPacked}</td>
+                <td className="text-center font-bold">{totalProd - totalPacked}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div className="bottom-bar">
+        <button className="btn-ghost text-sm" onClick={() => navigate(`/admin/lote/${lotId}`)}>← Voltar</button>
+        <button className={`flex-1 ${saved ? "btn-success" : "btn-secondary"}`} onClick={handleSave} disabled={saving}>
+          {saving ? "Salvando..." : saved ? "✓ Salvo!" : "Salvar"}
+        </button>
+        <button className="btn-success flex-1" onClick={handleConfirm}>
+          ✓ Confirmar
+        </button>
       </div>
     </div>
   );

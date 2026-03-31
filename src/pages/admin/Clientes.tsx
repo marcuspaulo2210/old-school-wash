@@ -2,12 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Client {
-  id: string;
-  name: string;
-  type: string;
-  observation: string | null;
-}
+interface Client { id: string; name: string; type: string; observation: string | null; }
 
 const Clientes = () => {
   const navigate = useNavigate();
@@ -28,15 +23,8 @@ const Clientes = () => {
   const handleAdd = async () => {
     if (!name.trim()) return;
     setSaving(true);
-    await supabase.from("clients").insert({
-      name: name.trim(),
-      type,
-      observation: observation.trim() || null,
-    });
-    setName("");
-    setObservation("");
-    setShowForm(false);
-    setSaving(false);
+    await supabase.from("clients").insert({ name: name.trim(), type, observation: observation.trim() || null });
+    setName(""); setObservation(""); setShowForm(false); setSaving(false);
     fetchClients();
   };
 
@@ -47,80 +35,66 @@ const Clientes = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-2 pb-8">
-      <div className="paper-sheet p-4 mb-4">
-        <div className="text-center mb-4 border-b border-foreground pb-3">
-          <h1 className="text-lg font-bold tracking-wide">AMANÁ</h1>
-          <p className="text-xs text-muted-foreground">CADASTRO DE CLIENTES</p>
+    <div className="app-container">
+      <div className="app-header">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="app-header-title">Clientes</h1>
+            <p className="app-header-subtitle">Hospitais e clínicas</p>
+          </div>
+          <button className="btn-primary text-sm px-4 py-2" onClick={() => setShowForm(!showForm)}>
+            {showForm ? "Cancelar" : "+ Novo"}
+          </button>
         </div>
+      </div>
 
-        <button
-          className="btn-paper btn-paper-primary w-full mb-4 text-xs"
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? "CANCELAR" : "+ NOVO CLIENTE"}
-        </button>
-
+      <div className="page-content animate-fade-in">
         {showForm && (
-          <div className="border border-border p-3 mb-4 space-y-3">
+          <div className="app-card-elevated mb-4 space-y-4">
             <div>
-              <span className="font-bold text-xs block mb-1">Nome:</span>
-              <div className="paper-field w-full">
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do hospital/clínica" />
-              </div>
+              <label className="field-label">Nome</label>
+              <input className="field-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do hospital/clínica" />
             </div>
             <div>
-              <span className="font-bold text-xs block mb-1">Tipo:</span>
-              <select
-                className="w-full border border-border p-2 bg-card font-mono text-sm"
-                value={type}
-                onChange={(e) => setType(e.target.value as "hospital" | "clinica")}
-              >
+              <label className="field-label">Tipo</label>
+              <select className="field-select" value={type} onChange={(e) => setType(e.target.value as "hospital" | "clinica")}>
                 <option value="hospital">Hospital</option>
                 <option value="clinica">Clínica</option>
               </select>
             </div>
             <div>
-              <span className="font-bold text-xs block mb-1">Observação:</span>
-              <div className="paper-field w-full">
-                <input value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Opcional" />
-              </div>
+              <label className="field-label">Observação</label>
+              <input className="field-input" value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Opcional" />
             </div>
-            <button className="btn-paper btn-paper-success w-full" onClick={handleAdd} disabled={saving}>
-              {saving ? "SALVANDO..." : "SALVAR CLIENTE"}
+            <button className="btn-success w-full btn-lg" onClick={handleAdd} disabled={saving}>
+              {saving ? "Salvando..." : "Salvar cliente"}
             </button>
           </div>
         )}
 
         {clients.length === 0 ? (
-          <p className="text-center text-muted-foreground text-sm py-4">Nenhum cliente cadastrado.</p>
+          <div className="empty-state">
+            <div className="empty-state-icon">🏥</div>
+            <p className="empty-state-text">Nenhum cliente cadastrado</p>
+          </div>
         ) : (
-          <table className="paper-table">
-            <thead>
-              <tr>
-                <th className="text-left">Nome</th>
-                <th>Tipo</th>
-                <th>Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => (
-                <tr key={c.id}>
-                  <td className="text-left text-xs">{c.name}</td>
-                  <td className="text-center text-[10px]">{c.type === "hospital" ? "HOSP." : "CLÍN."}</td>
-                  <td className="text-center">
-                    <button className="text-destructive text-[10px] font-bold" onClick={() => handleDelete(c.id)}>
-                      EXCLUIR
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="space-y-2">
+            {clients.map((c) => (
+              <div key={c.id} className="list-item">
+                <div>
+                  <div className="text-sm font-bold text-foreground">{c.name}</div>
+                  <div className="text-xs text-muted-foreground">{c.type === "hospital" ? "Hospital" : "Clínica"}</div>
+                </div>
+                <button className="btn-ghost text-destructive text-xs px-3 py-1" onClick={() => handleDelete(c.id)}>
+                  Excluir
+                </button>
+              </div>
+            ))}
+          </div>
         )}
 
         <div className="mt-6 text-center">
-          <button className="btn-paper text-xs" onClick={() => navigate("/admin")}>← VOLTAR</button>
+          <button className="btn-ghost text-sm" onClick={() => navigate("/admin")}>← Voltar</button>
         </div>
       </div>
     </div>
