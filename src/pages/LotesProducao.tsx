@@ -29,58 +29,59 @@ const LotesProducao = () => {
     fetchLots();
   }, []);
 
-  const statusLabel = (s: string) => {
-    switch (s) {
-      case "em_producao": return "EM PRODUÇÃO";
-      case "finalizado": return "FINALIZADO";
-      case "conferido": return "CONFERIDO";
-      default: return s;
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background p-2 pb-8">
-      <div className="paper-sheet p-4 mb-4">
-        <div className="text-center mb-4 border-b border-foreground pb-3">
-          <h1 className="text-lg font-bold tracking-wide">AMANÁ</h1>
-          <p className="text-xs text-muted-foreground">LOTES EM PRODUÇÃO</p>
-          <p className="text-sm font-bold text-primary mt-1">{mesa}</p>
+    <div className="app-container">
+      {/* Header */}
+      <div className="app-header">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="app-header-title">Lotes em Produção</h1>
+            <p className="app-header-subtitle">{mesa}</p>
+          </div>
+          <div className="badge-primary">{mesa}</div>
         </div>
+      </div>
 
+      <div className="page-content animate-fade-in">
         {loading ? (
-          <p className="text-center text-muted-foreground text-sm py-8">Carregando...</p>
+          <div className="empty-state">
+            <div className="empty-state-icon">⏳</div>
+            <p className="empty-state-text">Carregando...</p>
+          </div>
         ) : lots.length === 0 ? (
-          <p className="text-center text-muted-foreground text-sm py-8">
-            Nenhum lote em produção.<br />
-            Peça ao administrador para criar um lote.
-          </p>
+          <div className="empty-state">
+            <div className="empty-state-icon">📋</div>
+            <p className="empty-state-text">Nenhum lote em produção</p>
+            <p className="text-xs text-muted-foreground mt-1">Peça ao administrador para criar um lote.</p>
+          </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {lots.map((lot) => (
               <button
                 key={lot.id}
                 onClick={() => navigate(`/producao/lote/${lot.id}`)}
-                className="btn-paper w-full text-left py-3 px-4 flex justify-between items-center"
+                className="list-item w-full text-left"
               >
                 <div>
-                  <div className="font-bold text-sm">
-                    LOTE #{lot.lot_number}
+                  <div className="text-base font-bold text-foreground">
+                    Lote #{lot.lot_number}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     {lot.clients?.name || "—"}
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-primary">
-                  {statusLabel(lot.status)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="badge-primary">Em produção</span>
+                  <span className="text-muted-foreground">→</span>
+                </div>
               </button>
             ))}
           </div>
         )}
 
-        <div className="flex gap-2 mt-6 justify-center">
-          <button className="btn-paper text-xs" onClick={() => navigate("/producao")}>
-            ← TROCAR MESA
+        <div className="mt-8 text-center">
+          <button className="btn-ghost text-sm" onClick={() => navigate("/producao")}>
+            ← Trocar mesa
           </button>
         </div>
       </div>

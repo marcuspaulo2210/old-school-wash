@@ -24,11 +24,8 @@ const Login = () => {
         setError("Erro ao criar conta. Tente novamente.");
       } else {
         setSuccess("Conta criada! Entrando...");
-        // Auto-confirm is on, so sign in immediately
         const { error: signInError } = await signIn(email, password);
-        if (!signInError) {
-          navigate("/admin");
-        }
+        if (!signInError) navigate("/admin");
       }
     } else {
       const { error } = await signIn(email, password);
@@ -42,67 +39,83 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="paper-sheet p-6 w-full max-w-sm">
-        <div className="text-center mb-6 border-b border-foreground pb-3">
-          <h1 className="text-xl font-bold tracking-wide">AMANÁ</h1>
-          <p className="text-xs text-muted-foreground">LAVANDERIA HOSPITALAR</p>
-          <p className="text-[10px] text-muted-foreground mt-1">ACESSO ADMINISTRATIVO</p>
+    <div className="app-container flex items-center justify-center p-4">
+      <div className="w-full max-w-sm animate-fade-in">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-2xl font-black text-primary-foreground">A</span>
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Amaná</h1>
+          <p className="text-sm text-muted-foreground font-medium mt-1">Lavanderia Hospitalar</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="font-bold text-sm block mb-1">Email:</label>
-            <div className="paper-field w-full">
+        {/* Login card */}
+        <div className="app-card-elevated">
+          <h2 className="text-base font-bold text-foreground mb-5">
+            {isSignUp ? "Criar conta" : "Acesso administrativo"}
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="field-label">Email</label>
               <input
                 type="email"
+                className="field-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
                 required
                 autoComplete="email"
               />
             </div>
-          </div>
-          <div>
-            <label className="font-bold text-sm block mb-1">Senha:</label>
-            <div className="paper-field w-full">
+            <div>
+              <label className="field-label">Senha</label>
               <input
                 type="password"
+                className="field-input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
                 required
                 autoComplete="current-password"
               />
             </div>
-          </div>
 
-          {error && <p className="text-destructive text-xs text-center">{error}</p>}
-          {success && <p className="text-green-600 text-xs text-center">{success}</p>}
+            {error && (
+              <div className="rounded-xl bg-destructive/10 text-destructive text-sm font-medium px-4 py-3">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="rounded-xl bg-success/10 text-success text-sm font-medium px-4 py-3">
+                {success}
+              </div>
+            )}
 
+            <button type="submit" disabled={loading} className="btn-primary w-full btn-lg">
+              {loading ? (isSignUp ? "Criando..." : "Entrando...") : (isSignUp ? "Criar conta" : "Entrar")}
+            </button>
+
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground font-medium w-full text-center transition-colors"
+              onClick={() => { setIsSignUp(!isSignUp); setError(""); setSuccess(""); }}
+            >
+              {isSignUp ? "Já tem conta? Entrar" : "Criar nova conta"}
+            </button>
+          </form>
+        </div>
+
+        {/* Production access */}
+        <div className="mt-4">
           <button
-            type="submit"
-            disabled={loading}
-            className="btn-paper btn-paper-primary w-full"
-          >
-            {loading ? (isSignUp ? "CRIANDO..." : "ENTRANDO...") : (isSignUp ? "CRIAR CONTA" : "ENTRAR")}
-          </button>
-
-          <button
-            type="button"
-            className="text-xs text-muted-foreground underline w-full text-center"
-            onClick={() => { setIsSignUp(!isSignUp); setError(""); setSuccess(""); }}
-          >
-            {isSignUp ? "Já tem conta? Entrar" : "Criar nova conta"}
-          </button>
-        </form>
-
-        <div className="text-center mt-4 pt-3 border-t border-border">
-          <button
-            className="btn-paper w-full text-xs"
+            className="btn-secondary w-full btn-lg"
             onClick={() => navigate("/producao")}
           >
-            ACESSO PRODUÇÃO (SEM SENHA)
+            🏭 Acesso Produção
           </button>
+          <p className="text-center text-xs text-muted-foreground mt-2">Acesso rápido sem senha</p>
         </div>
       </div>
     </div>

@@ -39,19 +39,14 @@ const Producao = () => {
       setClothingTypes(typesRes.data || []);
       if (lotRes.data) {
         const client = lotRes.data.clients as unknown as { name: string } | null;
-        setLotInfo({
-          lot_number: lotRes.data.lot_number,
-          clientName: client?.name || "—",
-        });
+        setLotInfo({ lot_number: lotRes.data.lot_number, clientName: client?.name || "—" });
       }
 
       const existingEntries = entriesRes.data || [];
       setEntries(existingEntries as ProductionEntry[]);
 
       const qtyMap: Record<string, number> = {};
-      existingEntries.forEach((e: ProductionEntry) => {
-        qtyMap[e.clothing_type_id] = e.quantity;
-      });
+      existingEntries.forEach((e: ProductionEntry) => { qtyMap[e.clothing_type_id] = e.quantity; });
       setQuantities(qtyMap);
     };
     fetchData();
@@ -63,10 +58,7 @@ const Producao = () => {
   };
 
   const handleDecrement = (typeId: string) => {
-    setQuantities((prev) => ({
-      ...prev,
-      [typeId]: Math.max(0, (prev[typeId] || 0) - 1),
-    }));
+    setQuantities((prev) => ({ ...prev, [typeId]: Math.max(0, (prev[typeId] || 0) - 1) }));
     setSaved(false);
   };
 
@@ -83,17 +75,13 @@ const Producao = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    // Upsert: for each clothing type with quantity > 0, create or update entry
     for (const type of clothingTypes) {
       const qty = quantities[type.id] || 0;
       const existing = entries.find((e) => e.clothing_type_id === type.id);
 
       if (existing) {
         if (qty !== existing.quantity) {
-          await supabase
-            .from("production_entries")
-            .update({ quantity: qty })
-            .eq("id", existing.id);
+          await supabase.from("production_entries").update({ quantity: qty }).eq("id", existing.id);
         }
       } else if (qty > 0) {
         await supabase.from("production_entries").insert({
@@ -105,12 +93,8 @@ const Producao = () => {
       }
     }
 
-    // Refresh entries
     const { data } = await supabase
-      .from("production_entries")
-      .select("*")
-      .eq("lot_id", lotId!)
-      .eq("mesa", mesa);
+      .from("production_entries").select("*").eq("lot_id", lotId!).eq("mesa", mesa);
     setEntries((data as ProductionEntry[]) || []);
     setSaving(false);
     setSaved(true);
@@ -118,89 +102,72 @@ const Producao = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-2 pb-8">
-      <div className="paper-sheet p-4 mb-4">
-        {/* Header */}
-        <div className="text-center mb-4 border-b border-foreground pb-3">
-          <h1 className="text-lg font-bold tracking-wide">AMANÁ</h1>
-          <p className="text-xs text-muted-foreground">CONTROLE DE PRODUÇÃO</p>
-        </div>
-
-        {/* Lot info */}
-        {lotInfo && (
-          <div className="space-y-1 mb-4 text-sm border-b border-border pb-3">
-            <p><span className="font-bold">Cliente:</span> {lotInfo.clientName}</p>
-            <p><span className="font-bold">Lote:</span> #{lotInfo.lot_number}</p>
-            <p><span className="font-bold">Mesa:</span> <span className="text-primary font-bold">{mesa}</span></p>
+    <div className="app-container">
+      {/* Header */}
+      <div className="app-header">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="app-header-title">Produção</h1>
+              <p className="app-header-subtitle">
+                {lotInfo ? `Lote #${lotInfo.lot_number} · ${lotInfo.clientName}` : "Carregando..."}
+              </p>
+            </div>
+            <div className="badge-primary">{mesa}</div>
           </div>
-        )}
-
-        {/* Table */}
-        <table className="paper-table">
-          <thead>
-            <tr>
-              <th className="text-left" style={{ width: "45%" }}>Tipo de Roupa</th>
-              <th style={{ width: "15%" }}>Unid.</th>
-              <th style={{ width: "40%" }}>Quantidade</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clothingTypes.map((type) => {
-              const qty = quantities[type.id] || 0;
-              return (
-                <tr key={type.id}>
-                  <td className="text-left text-xs">{type.name}</td>
-                  <td className="text-center text-[10px] text-muted-foreground">{type.unit}</td>
-                  <td>
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        className="btn-qty"
-                        onClick={() => handleDecrement(type.id)}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        className="paper-input"
-                        style={{ width: "50px" }}
-                        value={qty || ""}
-                        onChange={(e) => handleManualChange(type.id, e.target.value)}
-                      />
-                      <button
-                        className="btn-qty btn-qty-plus"
-                        onClick={() => handleIncrement(type.id)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={2} className="text-right font-bold text-xs">TOTAL DE PEÇAS</td>
-              <td className="text-center font-bold text-lg">{totalPecas}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        {/* Buttons */}
-        <div className="flex gap-3 mt-6 justify-center flex-wrap">
-          <button className="btn-paper text-xs" onClick={() => navigate("/producao/lotes")}>
-            ← VOLTAR
-          </button>
-          <button
-            className={`btn-paper ${saved ? "btn-paper-success" : "btn-paper-primary"}`}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "SALVANDO..." : saved ? "✓ SALVO" : "CONFIRMAR ITEM"}
-          </button>
         </div>
+      </div>
+
+      <div className="page-content animate-fade-in">
+        {/* Total card */}
+        <div className="app-card bg-primary/5 border-primary/20 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total de peças</p>
+            <p className="text-3xl font-extrabold text-primary">{totalPecas}</p>
+          </div>
+          <div className="text-4xl">📦</div>
+        </div>
+
+        {/* Items */}
+        <div className="space-y-2">
+          {clothingTypes.map((type) => {
+            const qty = quantities[type.id] || 0;
+            return (
+              <div key={type.id} className="app-card flex items-center justify-between gap-3 py-3 px-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{type.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{type.unit}</p>
+                </div>
+                <div className="qty-control">
+                  <button className="qty-btn-minus" onClick={() => handleDecrement(type.id)}>−</button>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    className="qty-input"
+                    value={qty || ""}
+                    onChange={(e) => handleManualChange(type.id, e.target.value)}
+                  />
+                  <button className="qty-btn-plus" onClick={() => handleIncrement(type.id)}>+</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div className="bottom-bar">
+        <button className="btn-ghost text-sm flex-1" onClick={() => navigate("/producao/lotes")}>
+          ← Voltar
+        </button>
+        <button
+          className={`flex-[2] ${saved ? "btn-success" : "btn-primary"} btn-lg`}
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? "Salvando..." : saved ? "✓ Salvo!" : "Confirmar"}
+        </button>
       </div>
     </div>
   );

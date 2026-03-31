@@ -37,103 +37,97 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
-  const statusLabel = (s: string) => {
+  const statusBadge = (s: string) => {
     switch (s) {
-      case "em_producao": return "EM PRODUÇÃO";
-      case "finalizado": return "FINALIZADO";
-      case "conferido": return "CONFERIDO";
-      default: return s;
-    }
-  };
-
-  const statusClass = (s: string) => {
-    switch (s) {
-      case "em_producao": return "text-primary";
-      case "finalizado": return "text-accent-foreground bg-accent";
-      case "conferido": return "text-foreground bg-secondary";
-      default: return "";
+      case "em_producao": return <span className="badge-primary">Em produção</span>;
+      case "finalizado": return <span className="badge-warning">Finalizado</span>;
+      case "conferido": return <span className="badge-success">Conferido</span>;
+      default: return <span className="badge-neutral">{s}</span>;
     }
   };
 
   return (
-    <div className="min-h-screen bg-background p-2 pb-20">
-      <div className="paper-sheet p-4 mb-4">
-        <div className="text-center mb-4 border-b border-foreground pb-3">
-          <h1 className="text-lg font-bold tracking-wide">AMANÁ</h1>
-          <p className="text-xs text-muted-foreground">PAINEL ADMINISTRATIVO</p>
+    <div className="app-container">
+      {/* Header */}
+      <div className="app-header">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+              <span className="text-sm font-black text-primary-foreground">A</span>
+            </div>
+            <div>
+              <h1 className="app-header-title">Amaná</h1>
+              <p className="app-header-subtitle">Painel administrativo</p>
+            </div>
+          </div>
+          <button className="btn-ghost text-xs px-3 py-2" onClick={signOut}>
+            Sair
+          </button>
         </div>
+      </div>
 
-        {/* Quick stats */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="border border-border p-2 text-center">
-            <div className="text-lg font-bold text-primary">{stats.emProducao}</div>
-            <div className="text-[10px] text-muted-foreground">EM PRODUÇÃO</div>
+      <div className="page-content animate-fade-in">
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="stat-card bg-accent border border-primary/20 rounded-2xl">
+            <div className="stat-value text-primary">{stats.emProducao}</div>
+            <div className="stat-label text-muted-foreground">Em produção</div>
           </div>
-          <div className="border border-border p-2 text-center">
-            <div className="text-lg font-bold text-accent-foreground">{stats.finalizado}</div>
-            <div className="text-[10px] text-muted-foreground">FINALIZADOS</div>
+          <div className="stat-card bg-warning/10 border border-warning/20 rounded-2xl">
+            <div className="stat-value text-warning">{stats.finalizado}</div>
+            <div className="stat-label text-muted-foreground">Finalizados</div>
           </div>
-          <div className="border border-border p-2 text-center">
-            <div className="text-lg font-bold">{stats.conferido}</div>
-            <div className="text-[10px] text-muted-foreground">CONFERIDOS</div>
+          <div className="stat-card bg-success/10 border border-success/20 rounded-2xl">
+            <div className="stat-value text-success">{stats.conferido}</div>
+            <div className="stat-label text-muted-foreground">Conferidos</div>
           </div>
         </div>
 
         {/* Quick actions */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <button className="btn-paper btn-paper-primary py-3 text-xs" onClick={() => navigate("/admin/lote/novo")}>
-            + NOVO LOTE
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button className="btn-primary btn-lg w-full" onClick={() => navigate("/admin/lote/novo")}>
+            + Novo Lote
           </button>
-          <button className="btn-paper py-3 text-xs" onClick={() => navigate("/admin/clientes")}>
-            CLIENTES
+          <button className="btn-secondary btn-lg w-full" onClick={() => navigate("/admin/clientes")}>
+            🏥 Clientes
           </button>
-          <button className="btn-paper py-3 text-xs" onClick={() => navigate("/admin/roupas")}>
-            TIPOS DE ROUPA
+          <button className="btn-secondary btn-lg w-full" onClick={() => navigate("/admin/roupas")}>
+            👕 Tipos de Roupa
           </button>
-          <button className="btn-paper py-3 text-xs" onClick={() => navigate("/admin/relatorios")}>
-            RELATÓRIOS
+          <button className="btn-secondary btn-lg w-full" onClick={() => navigate("/admin/relatorios")}>
+            📊 Relatórios
           </button>
         </div>
 
         {/* Recent lots */}
-        <div className="border-t border-foreground pt-3">
-          <p className="font-bold text-sm mb-2">LOTES RECENTES</p>
-          {lots.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm py-4">Nenhum lote criado.</p>
-          ) : (
-            <table className="paper-table">
-              <thead>
-                <tr>
-                  <th className="text-left">Lote</th>
-                  <th className="text-left">Cliente</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lots.map((lot) => (
-                  <tr
-                    key={lot.id}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/admin/lote/${lot.id}`)}
-                  >
-                    <td className="text-left text-xs font-bold">#{lot.lot_number}</td>
-                    <td className="text-left text-xs">{lot.clients?.name || "—"}</td>
-                    <td className="text-center">
-                      <span className={`text-[10px] font-bold px-2 py-1 ${statusClass(lot.status)}`}>
-                        {statusLabel(lot.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <div className="app-card-elevated">
+          <h2 className="text-base font-bold text-foreground mb-4">Lotes recentes</h2>
 
-        <div className="mt-6 text-center">
-          <button className="btn-paper text-xs" onClick={signOut}>
-            SAIR
-          </button>
+          {lots.length === 0 ? (
+            <div className="empty-state py-8">
+              <div className="empty-state-icon">📋</div>
+              <p className="empty-state-text">Nenhum lote criado</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {lots.map((lot) => (
+                <button
+                  key={lot.id}
+                  className="list-item w-full text-left"
+                  onClick={() => navigate(`/admin/lote/${lot.id}`)}
+                >
+                  <div>
+                    <div className="text-sm font-bold text-foreground">Lote #{lot.lot_number}</div>
+                    <div className="text-xs text-muted-foreground">{lot.clients?.name || "—"}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {statusBadge(lot.status)}
+                    <span className="text-muted-foreground">→</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
