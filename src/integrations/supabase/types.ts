@@ -14,33 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      clients: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-          observation: string | null
-          type: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          observation?: string | null
-          type: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          observation?: string | null
-          type?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       clothing_types: {
         Row: {
           active: boolean
@@ -68,136 +41,143 @@ export type Database = {
         }
         Relationships: []
       }
-      lots: {
+      order_items: {
         Row: {
-          client_id: string
+          clothing_type_id: string
           created_at: string
-          created_by: string | null
-          finalized_at: string | null
           id: string
-          lot_number: number
           notes: string | null
-          status: Database["public"]["Enums"]["lot_status"]
-          updated_at: string
+          order_id: string
+          quantity_checked: number | null
+          quantity_registered: number
         }
         Insert: {
-          client_id: string
+          clothing_type_id: string
           created_at?: string
-          created_by?: string | null
-          finalized_at?: string | null
           id?: string
-          lot_number?: number
           notes?: string | null
-          status?: Database["public"]["Enums"]["lot_status"]
-          updated_at?: string
+          order_id: string
+          quantity_checked?: number | null
+          quantity_registered?: number
         }
         Update: {
-          client_id?: string
+          clothing_type_id?: string
           created_at?: string
-          created_by?: string | null
-          finalized_at?: string | null
           id?: string
-          lot_number?: number
           notes?: string | null
-          status?: Database["public"]["Enums"]["lot_status"]
-          updated_at?: string
+          order_id?: string
+          quantity_checked?: number | null
+          quantity_registered?: number
         }
         Relationships: [
           {
-            foreignKeyName: "lots_client_id_fkey"
+            foreignKeyName: "order_items_clothing_type_id_fkey"
+            columns: ["clothing_type_id"]
+            isOneToOne: false
+            referencedRelation: "clothing_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          charge_type: Database["public"]["Enums"]["charge_type"]
+          client_id: string
+          client_notes: string | null
+          collected_at: string | null
+          collection_notes: string | null
+          created_at: string
+          driver_id: string | null
+          has_divergence: boolean
+          id: string
+          order_number: number
+          production_notes: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          updated_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          charge_type?: Database["public"]["Enums"]["charge_type"]
+          client_id: string
+          client_notes?: string | null
+          collected_at?: string | null
+          collection_notes?: string | null
+          created_at?: string
+          driver_id?: string | null
+          has_divergence?: boolean
+          id?: string
+          order_number?: number
+          production_notes?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          charge_type?: Database["public"]["Enums"]["charge_type"]
+          client_id?: string
+          client_notes?: string | null
+          collected_at?: string | null
+          collection_notes?: string | null
+          created_at?: string
+          driver_id?: string | null
+          has_divergence?: boolean
+          id?: string
+          order_number?: number
+          production_notes?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "clients"
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      packaging_entries: {
+      profiles: {
         Row: {
-          clothing_type_id: string
+          address: string | null
           created_at: string
           id: string
-          lot_id: string
-          quantity_packed: number
+          name: string
+          phone: string | null
           updated_at: string
         }
         Insert: {
-          clothing_type_id: string
+          address?: string | null
           created_at?: string
-          id?: string
-          lot_id: string
-          quantity_packed?: number
-          updated_at?: string
-        }
-        Update: {
-          clothing_type_id?: string
-          created_at?: string
-          id?: string
-          lot_id?: string
-          quantity_packed?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "packaging_entries_clothing_type_id_fkey"
-            columns: ["clothing_type_id"]
-            isOneToOne: false
-            referencedRelation: "clothing_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "packaging_entries_lot_id_fkey"
-            columns: ["lot_id"]
-            isOneToOne: false
-            referencedRelation: "lots"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      production_entries: {
-        Row: {
-          clothing_type_id: string
-          created_at: string
           id: string
-          lot_id: string
-          mesa: string
-          quantity: number
-          updated_at: string
-        }
-        Insert: {
-          clothing_type_id: string
-          created_at?: string
-          id?: string
-          lot_id: string
-          mesa: string
-          quantity?: number
+          name: string
+          phone?: string | null
           updated_at?: string
         }
         Update: {
-          clothing_type_id?: string
+          address?: string | null
           created_at?: string
           id?: string
-          lot_id?: string
-          mesa?: string
-          quantity?: number
+          name?: string
+          phone?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "production_entries_clothing_type_id_fkey"
-            columns: ["clothing_type_id"]
-            isOneToOne: false
-            referencedRelation: "clothing_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "production_entries_lot_id_fkey"
-            columns: ["lot_id"]
-            isOneToOne: false
-            referencedRelation: "lots"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -222,6 +202,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_user_profile: {
+        Args: { _name: string; _role?: Database["public"]["Enums"]["app_role"] }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -231,8 +215,15 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "producao"
-      lot_status: "em_producao" | "finalizado" | "conferido"
+      app_role: "admin" | "cliente" | "motorista" | "producao"
+      charge_type: "por_peca" | "por_peso"
+      order_status:
+        | "cadastrado"
+        | "aguardando_coleta"
+        | "coletado"
+        | "em_lavagem"
+        | "finalizado"
+        | "entregue"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -360,8 +351,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "producao"],
-      lot_status: ["em_producao", "finalizado", "conferido"],
+      app_role: ["admin", "cliente", "motorista", "producao"],
+      charge_type: ["por_peca", "por_peso"],
+      order_status: [
+        "cadastrado",
+        "aguardando_coleta",
+        "coletado",
+        "em_lavagem",
+        "finalizado",
+        "entregue",
+      ],
     },
   },
 } as const
