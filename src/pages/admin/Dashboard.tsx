@@ -1,137 +1,76 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import AppLayout from "@/components/AppLayout";
+import { ClipboardList, Shirt, AlertTriangle, Users, Package, TruckIcon } from "lucide-react";
 
-interface LotWithClient {
-  id: string;
-  lot_number: number;
-  status: string;
-  created_at: string;
-  clients: { name: string } | null;
-}
-
-const Dashboard = () => {
+const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
-  const [lots, setLots] = useState<LotWithClient[]>([]);
-  const [stats, setStats] = useState({ total: 0, emProducao: 0, finalizado: 0, conferido: 0 });
+  const [stats, setStats] = useState({ total: 0, aguardando: 0, producao: 0, divergencias: 0 });
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data } = await supabase
-        .from("lots")
-        .select("id, lot_number, status, created_at, clients(name)")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      const lotsList = (data as unknown as LotWithClient[]) || [];
-      setLots(lotsList);
+    const fetchStats = async () => {
+      const { data } = await supabase.from("orders").select("status, has_divergence");
+      const orders = data || [];
       setStats({
-        total: lotsList.length,
-        emProducao: lotsList.filter((l) => l.status === "em_producao").length,
-        finalizado: lotsList.filter((l) => l.status === "finalizado").length,
-        conferido: lotsList.filter((l) => l.status === "conferido").length,
+        total: orders.length,
+        aguardando: orders.filter((o) => o.status === "aguardando_coleta").length,
+        producao: orders.filter((o) => o.status === "em_lavagem").length,
+        divergencias: orders.filter((o) => o.has_divergence).length,
       });
     };
-    fetchData();
+    fetchStats();
   }, []);
 
-  const statusBadge = (s: string) => {
-    switch (s) {
-      case "em_producao": return <span className="badge-primary">Em produção</span>;
-      case "finalizado": return <span className="badge-warning">Finalizado</span>;
-      case "conferido": return <span className="badge-success">Conferido</span>;
-      default: return <span className="badge-neutral">{s}</span>;
-    }
-  };
+  const cards = [
+    { label: "Pedidos hoje", value: stats.total, color: "text-primary", icon: ClipboardList },
+    { label: "Aguard. coleta", value: stats.aguardando, color: "text-warning", icon: TruckIcon },
+    { label: "Na produção", value: stats.producao, color: "text-teal", icon: Package },
+    { label: "Divergências", value: stats.divergencias, color: "text-destructive", icon: AlertTriangle },
+  ];
+
+  const menuItems = [
+    { label: "Tipos de Roupa", desc: "Cadastro exclusivo admin", icon: Shirt, path: "/admin/roupas", badge: "badge-purple" },
+    { label: "Todos os Pedidos", desc: "Visualizar e filtrar", icon: ClipboardList, path: "/admin/pedidos", badge: "badge-primary" },
+    { label: "Gerenciar Usuários", desc: "Perfis e permissões", icon: Users, path: "/admin/pedidos", badge: "badge-teal" },
+  ];
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <div className="app-header">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-              <span className="text-sm font-black text-primary-foreground">A</span>
-            </div>
-            <div>
-              <h1 className="app-header-title">Amaná</h1>
-              <p className="app-header-subtitle">Painel administrativo</p>
-            </div>
+    <AppLayout title="LavaApp" subtitle="Painel Administrativo">
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {cards.map((c) => (
+          <div key={c.label} className="stat-card">
+            <c.icon className={`w-5 h-5 mx-auto mb-2 ${c.color}`} />
+            <div className={`stat-value ${c.color}`}>{c.value}</div>
+            <div className="stat-label">{c.label}</div>
           </div>
-          <button className="btn-ghost text-xs px-3 py-2" onClick={signOut}>
-            Sair
-          </button>
-        </div>
+        ))}
       </div>
 
-      <div className="page-content animate-fade-in">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="stat-card bg-accent border border-primary/20 rounded-2xl">
-            <div className="stat-value text-primary">{stats.emProducao}</div>
-            <div className="stat-label text-muted-foreground">Em produção</div>
-          </div>
-          <div className="stat-card bg-warning/10 border border-warning/20 rounded-2xl">
-            <div className="stat-value text-warning">{stats.finalizado}</div>
-            <div className="stat-label text-muted-foreground">Finalizados</div>
-          </div>
-          <div className="stat-card bg-success/10 border border-success/20 rounded-2xl">
-            <div className="stat-value text-success">{stats.conferido}</div>
-            <div className="stat-label text-muted-foreground">Conferidos</div>
-          </div>
-        </div>
-
-        {/* Quick actions */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button className="btn-primary btn-lg w-full" onClick={() => navigate("/admin/lote/novo")}>
-            + Novo Lote
-          </button>
-          <button className="btn-secondary btn-lg w-full" onClick={() => navigate("/admin/clientes")}>
-            🏥 Clientes
-          </button>
-          <button className="btn-secondary btn-lg w-full" onClick={() => navigate("/admin/roupas")}>
-            👕 Tipos de Roupa
-          </button>
-          <button className="btn-secondary btn-lg w-full" onClick={() => navigate("/admin/relatorios")}>
-            📊 Relatórios
-          </button>
-        </div>
-
-        {/* Recent lots */}
-        <div className="app-card-elevated">
-          <h2 className="text-base font-bold text-foreground mb-4">Lotes recentes</h2>
-
-          {lots.length === 0 ? (
-            <div className="empty-state py-8">
-              <div className="empty-state-icon">📋</div>
-              <p className="empty-state-text">Nenhum lote criado</p>
+      {/* Menu */}
+      <div className="space-y-2">
+        {menuItems.map((item) => (
+          <button
+            key={item.label}
+            className="list-item w-full text-left"
+            onClick={() => navigate(item.path)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+                <item.icon className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-foreground">{item.label}</div>
+                <div className="text-xs text-muted-foreground">{item.desc}</div>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {lots.map((lot) => (
-                <button
-                  key={lot.id}
-                  className="list-item w-full text-left"
-                  onClick={() => navigate(`/admin/lote/${lot.id}`)}
-                >
-                  <div>
-                    <div className="text-sm font-bold text-foreground">Lote #{lot.lot_number}</div>
-                    <div className="text-xs text-muted-foreground">{lot.clients?.name || "—"}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {statusBadge(lot.status)}
-                    <span className="text-muted-foreground">→</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+            <span className={item.badge}>→</span>
+          </button>
+        ))}
       </div>
-    </div>
+    </AppLayout>
   );
 };
 
-export default Dashboard;
+export default AdminDashboard;
