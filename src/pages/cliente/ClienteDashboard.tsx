@@ -92,7 +92,7 @@ const ClienteDashboard = () => {
   const currentStep = latestOrder ? statusSteps.indexOf(latestOrder.status) : -1;
 
   return (
-    <AppLayout title="LavaApp" subtitle={profile?.name || "Cliente"}>
+    <AppLayout title="Amaná" subtitle={profile?.name || "Cliente"}>
       {/* Progress indicator */}
       {latestOrder && (
         <div className="app-card mb-5">
