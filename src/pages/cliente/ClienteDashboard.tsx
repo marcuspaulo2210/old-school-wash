@@ -4,100 +4,95 @@ import { useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { Plus, Minus } from "lucide-react";
 
-interface ClothingType { id: string; name: string; unit: string; }
-interface OrderItem { clothing_type_id: string; quantity_registered: number; }
-interface Order {
+interface TipoRoupa { id: string; nome: string; }
+interface ItemPedido { tipo_roupa_id: string; descricao_livre: string; quantidade_original: number; }
+interface Pedido {
   id: string;
-  order_number: number;
+  numero_pedido: string;
   status: string;
-  created_at: string;
+  criado_em: string;
 }
 
-const statusSteps = ["cadastrado", "aguardando_coleta", "coletado", "em_lavagem", "entregue"];
-const stepLabels = ["Cadastrar", "Aguardar", "Coletado", "Lavagem", "Entregue"];
+const statusSteps = ["aguardando_coleta", "coletado", "em_producao", "embalado", "entregue"];
+const stepLabels = ["Aguardar", "Coletado", "Produção", "Embalado", "Entregue"];
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
-  cadastrado: { label: "Cadastrado", cls: "badge-neutral" },
   aguardando_coleta: { label: "Aguard. Coleta", cls: "badge-warning" },
   coletado: { label: "Coletado", cls: "badge-primary" },
-  em_lavagem: { label: "Em Lavagem", cls: "badge-teal" },
-  finalizado: { label: "Finalizado", cls: "badge-success" },
+  em_producao: { label: "Em Produção", cls: "badge-teal" },
+  embalado: { label: "Embalado", cls: "badge-success" },
   entregue: { label: "Entregue", cls: "badge-purple" },
+  divergencia: { label: "Divergência", cls: "badge-danger" },
 };
 
 const ClienteDashboard = () => {
   const { user, profile } = useAuth();
-  const [clothingTypes, setClothingTypes] = useState<ClothingType[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [items, setItems] = useState<OrderItem[]>([]);
-  const [chargeType, setChargeType] = useState<"por_peca" | "por_peso">("por_peca");
+  const [tiposRoupa, setTiposRoupa] = useState<TipoRoupa[]>([]);
+  const [orders, setOrders] = useState<Pedido[]>([]);
+  const [items, setItems] = useState<ItemPedido[]>([]);
+  const [chargeType, setChargeType] = useState<"peca" | "peso">("peca");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    supabase.from("clothing_types").select("id, name, unit").eq("active", true).order("sort_order").then(({ data }) => setClothingTypes(data || []));
-    if (user) {
-      supabase.from("orders").select("id, order_number, status, created_at").eq("client_id", user.id).order("created_at", { ascending: false }).then(({ data }) => setOrders((data as Order[]) || []));
+    supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome").then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
+    if (user && profile?.cliente_id) {
+      supabase.from("pedidos").select("id, numero_pedido, status, criado_em").eq("cliente_id", profile.cliente_id).order("criado_em", { ascending: false }).then(({ data }) => setOrders((data as unknown as Pedido[]) || []));
     }
-  }, [user]);
+  }, [user, profile]);
 
   const addItem = () => {
-    if (clothingTypes.length > 0) {
-      setItems([...items, { clothing_type_id: clothingTypes[0].id, quantity_registered: 1 }]);
+    if (tiposRoupa.length > 0) {
+      setItems([...items, { tipo_roupa_id: tiposRoupa[0].id, descricao_livre: "", quantidade_original: 1 }]);
     }
   };
 
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
-  const updateItem = (idx: number, field: keyof OrderItem, value: string | number) => {
+  const updateItem = (idx: number, field: keyof ItemPedido, value: string | number) => {
     setItems(items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
   };
 
-  const totalPieces = items.reduce((sum, i) => sum + i.quantity_registered, 0);
+  const totalPieces = items.reduce((sum, i) => sum + i.quantidade_original, 0);
 
   const handleSubmit = async () => {
-    if (!user || items.length === 0) return;
+    if (!user || !profile?.cliente_id || items.length === 0) return;
     setSaving(true);
 
     const { data: order, error } = await supabase
-      .from("orders")
-      .insert({ client_id: user.id, charge_type: chargeType, client_notes: notes || null })
+      .from("pedidos")
+      .insert({ cliente_id: profile.cliente_id, tipo_cobranca: chargeType, obs_cliente: notes || null } as any)
       .select("id")
       .single();
 
     if (order && !error) {
       const orderItems = items.map((i) => ({
-        order_id: order.id,
-        clothing_type_id: i.clothing_type_id,
-        quantity_registered: i.quantity_registered,
+        pedido_id: (order as any).id,
+        tipo_roupa_id: i.tipo_roupa_id,
+        descricao_livre: i.descricao_livre || null,
+        quantidade_original: i.quantidade_original,
       }));
-      await supabase.from("order_items").insert(orderItems);
-
-      // Update status to aguardando_coleta
-      await supabase.from("orders").update({ status: "aguardando_coleta" as const }).eq("id", order.id);
+      await supabase.from("itens_pedido").insert(orderItems as any);
 
       setItems([]);
       setNotes("");
       setShowForm(false);
-      // Refresh orders
-      const { data } = await supabase.from("orders").select("id, order_number, status, created_at").eq("client_id", user.id).order("created_at", { ascending: false });
-      setOrders((data as Order[]) || []);
+      const { data } = await supabase.from("pedidos").select("id, numero_pedido, status, criado_em").eq("cliente_id", profile.cliente_id).order("criado_em", { ascending: false });
+      setOrders((data as unknown as Pedido[]) || []);
     }
     setSaving(false);
   };
 
-  // Progress indicator for latest order
   const latestOrder = orders[0];
   const currentStep = latestOrder ? statusSteps.indexOf(latestOrder.status) : -1;
 
   return (
-    <AppLayout title="Amaná" subtitle={profile?.name || "Cliente"}>
-      {/* Progress indicator */}
+    <AppLayout title="Amaná" subtitle={profile?.nome || "Cliente"}>
       {latestOrder && (
         <div className="app-card mb-5">
           <p className="text-xs text-muted-foreground mb-3 font-semibold uppercase tracking-wider">
-            Pedido <span className="font-mono">#{latestOrder.order_number}</span>
+            Pedido <span className="font-mono">{latestOrder.numero_pedido}</span>
           </p>
           <div className="flex items-center justify-between">
             {stepLabels.map((label, idx) => (
@@ -116,7 +111,6 @@ const ClienteDashboard = () => {
         </div>
       )}
 
-      {/* New order button or form */}
       {!showForm ? (
         <button className="btn-primary w-full btn-lg mb-5" onClick={() => setShowForm(true)}>
           <Plus className="w-5 h-5" /> Novo Pedido
@@ -125,22 +119,19 @@ const ClienteDashboard = () => {
         <div className="app-card-elevated mb-5 space-y-4">
           <h3 className="text-sm font-bold text-foreground">Novo Pedido</h3>
 
-          {/* Client name (read-only) */}
           <div>
             <label className="field-label">Clínica</label>
-            <input className="field-input opacity-60" value={profile?.name || ""} readOnly />
+            <input className="field-input opacity-60" value={profile?.nome || ""} readOnly />
           </div>
 
-          {/* Charge type */}
           <div>
             <label className="field-label">Tipo de cobrança</label>
-            <select className="field-select" value={chargeType} onChange={(e) => setChargeType(e.target.value as "por_peca" | "por_peso")}>
-              <option value="por_peca">Por peça</option>
-              <option value="por_peso">Por peso</option>
+            <select className="field-select" value={chargeType} onChange={(e) => setChargeType(e.target.value as "peca" | "peso")}>
+              <option value="peca">Por peça</option>
+              <option value="peso">Por peso</option>
             </select>
           </div>
 
-          {/* Items */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="field-label mb-0">Peças</label>
@@ -155,11 +146,11 @@ const ClienteDashboard = () => {
                   <div className="flex-1">
                     <select
                       className="field-select text-xs py-2"
-                      value={item.clothing_type_id}
-                      onChange={(e) => updateItem(idx, "clothing_type_id", e.target.value)}
+                      value={item.tipo_roupa_id}
+                      onChange={(e) => updateItem(idx, "tipo_roupa_id", e.target.value)}
                     >
-                      {clothingTypes.map((ct) => (
-                        <option key={ct.id} value={ct.id}>{ct.name} ({ct.unit})</option>
+                      {tiposRoupa.map((ct) => (
+                        <option key={ct.id} value={ct.id}>{ct.nome}</option>
                       ))}
                     </select>
                   </div>
@@ -167,8 +158,8 @@ const ClienteDashboard = () => {
                     type="number"
                     className="field-input w-20 text-center font-mono font-bold text-xs py-2"
                     min={1}
-                    value={item.quantity_registered}
-                    onChange={(e) => updateItem(idx, "quantity_registered", parseInt(e.target.value) || 0)}
+                    value={item.quantidade_original}
+                    onChange={(e) => updateItem(idx, "quantidade_original", parseInt(e.target.value) || 0)}
                   />
                   <button className="p-2 text-destructive hover:bg-destructive/10 rounded-lg" onClick={() => removeItem(idx)}>
                     <Minus className="w-4 h-4" />
@@ -178,7 +169,6 @@ const ClienteDashboard = () => {
             </div>
           </div>
 
-          {/* Total */}
           {items.length > 0 && (
             <div className="flex justify-between items-center py-2 border-t border-border">
               <span className="text-xs font-semibold text-muted-foreground uppercase">Total de peças</span>
@@ -186,7 +176,6 @@ const ClienteDashboard = () => {
             </div>
           )}
 
-          {/* Notes */}
           <div>
             <label className="field-label">Observações</label>
             <textarea
@@ -206,7 +195,6 @@ const ClienteDashboard = () => {
         </div>
       )}
 
-      {/* Order history */}
       <div>
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Histórico de pedidos</h3>
         {orders.length === 0 ? (
@@ -222,10 +210,10 @@ const ClienteDashboard = () => {
                 <div key={order.id} className="list-item">
                   <div>
                     <div className="text-sm font-bold text-foreground">
-                      Pedido <span className="font-mono">#{order.order_number}</span>
+                      Pedido <span className="font-mono">{order.numero_pedido}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString("pt-BR")}
+                      {new Date(order.criado_em).toLocaleDateString("pt-BR")}
                     </div>
                   </div>
                   <span className={s.cls}>{s.label}</span>

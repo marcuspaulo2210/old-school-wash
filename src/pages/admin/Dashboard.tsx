@@ -10,13 +10,13 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { data } = await supabase.from("orders").select("status, has_divergence");
+      const { data } = await supabase.from("pedidos").select("status");
       const orders = data || [];
       setStats({
         total: orders.length,
         aguardando: orders.filter((o) => o.status === "aguardando_coleta").length,
-        producao: orders.filter((o) => o.status === "em_lavagem").length,
-        divergencias: orders.filter((o) => o.has_divergence).length,
+        producao: orders.filter((o) => o.status === "em_producao").length,
+        divergencias: orders.filter((o) => o.status === "divergencia").length,
       });
     };
     fetchStats();
@@ -37,7 +37,6 @@ const AdminDashboard = () => {
 
   return (
     <AppLayout title="Amaná" subtitle="Painel Administrativo">
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {cards.map((c) => (
           <div key={c.label} className="stat-card">
@@ -48,7 +47,6 @@ const AdminDashboard = () => {
         ))}
       </div>
 
-      {/* Menu */}
       <div className="space-y-2">
         {menuItems.map((item) => (
           <button

@@ -5,9 +5,9 @@ import type { User, Session } from "@supabase/supabase-js";
 type AppRole = "admin" | "cliente" | "motorista" | "producao";
 
 interface Profile {
-  name: string;
-  phone: string | null;
-  address: string | null;
+  nome: string;
+  email: string;
+  cliente_id: string | null;
 }
 
 interface AuthContextType {
@@ -31,12 +31,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const fetchUserData = async (userId: string) => {
-    const [rolesRes, profileRes] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabase.from("profiles").select("name, phone, address").eq("id", userId).single(),
-    ]);
-    setRole((rolesRes.data?.[0]?.role as AppRole) ?? null);
-    setProfile(profileRes.data ?? null);
+    const { data } = await supabase
+      .from("usuarios")
+      .select("nome, email, perfil, cliente_id")
+      .eq("id", userId)
+      .single();
+    if (data) {
+      setRole(data.perfil as AppRole);
+      setProfile({ nome: data.nome, email: data.email, cliente_id: data.cliente_id });
+    } else {
+      setRole(null);
+      setProfile(null);
+    }
   };
 
   useEffect(() => {
@@ -80,11 +86,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     if (error) return { error: error as Error | null };
 
-    // Create profile + role via security definer function
     if (data.user) {
-      const { error: profileError } = await supabase.rpc("create_user_profile", {
-        _name: name,
-        _role: "cliente",
+      const { error: profileError } = await supabase.rpc("criar_perfil_usuario", {
+        _nome: name,
+        _email: email,
+        _perfil: "cliente",
       });
       if (profileError) return { error: profileError as unknown as Error };
     }

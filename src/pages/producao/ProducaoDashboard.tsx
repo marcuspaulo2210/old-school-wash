@@ -3,59 +3,60 @@ import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
 import { CheckCircle, AlertTriangle, Package } from "lucide-react";
 
-interface OrderItem {
+interface ItemPedido {
   id: string;
-  clothing_type_id: string;
-  quantity_registered: number;
-  quantity_checked: number | null;
-  notes: string | null;
-  clothing_types: { name: string; unit: string } | null;
+  tipo_roupa_id: string | null;
+  descricao_livre: string | null;
+  quantidade_original: number;
+  quantidade_conferida: number | null;
+  diferenca: number | null;
+  tipos_roupa: { nome: string } | null;
 }
 
-interface Order {
+interface Pedido {
   id: string;
-  order_number: number;
+  numero_pedido: string;
   status: string;
-  client_notes: string | null;
-  collection_notes: string | null;
-  profiles: { name: string } | null;
+  obs_cliente: string | null;
+  obs_motorista: string | null;
+  clientes: { nome: string } | null;
 }
 
 const ProducaoDashboard = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [items, setItems] = useState<OrderItem[]>([]);
+  const [orders, setOrders] = useState<Pedido[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<Pedido | null>(null);
+  const [items, setItems] = useState<ItemPedido[]>([]);
   const [productionNotes, setProductionNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   const fetchOrders = async () => {
     const { data } = await supabase
-      .from("orders")
-      .select("id, order_number, status, client_notes, collection_notes, profiles!orders_client_id_fkey(name)")
-      .in("status", ["coletado", "em_lavagem"])
-      .order("created_at", { ascending: true });
-    setOrders((data as unknown as Order[]) || []);
+      .from("pedidos")
+      .select("id, numero_pedido, status, obs_cliente, obs_motorista, clientes(nome)")
+      .in("status", ["coletado", "em_producao"])
+      .order("criado_em", { ascending: true });
+    setOrders((data as unknown as Pedido[]) || []);
   };
 
   useEffect(() => { fetchOrders(); }, []);
 
-  const openOrder = async (order: Order) => {
+  const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
     setProductionNotes("");
     const { data } = await supabase
-      .from("order_items")
-      .select("id, clothing_type_id, quantity_registered, quantity_checked, notes, clothing_types(name, unit)")
-      .eq("order_id", order.id);
-    setItems((data as unknown as OrderItem[]) || []);
+      .from("itens_pedido")
+      .select("id, tipo_roupa_id, descricao_livre, quantidade_original, quantidade_conferida, diferenca, tipos_roupa(nome)")
+      .eq("pedido_id", order.id);
+    setItems((data as unknown as ItemPedido[]) || []);
   };
 
   const updateChecked = (itemId: string, value: number) => {
-    setItems(items.map((i) => i.id === itemId ? { ...i, quantity_checked: value } : i));
+    setItems(items.map((i) => i.id === itemId ? { ...i, quantidade_conferida: value } : i));
   };
 
-  const getDiff = (item: OrderItem) => {
-    if (item.quantity_checked === null) return null;
-    return item.quantity_checked - item.quantity_registered;
+  const getDiff = (item: ItemPedido) => {
+    if (item.quantidade_conferida === null) return null;
+    return item.quantidade_conferida - item.quantidade_original;
   };
 
   const hasDivergence = items.some((i) => {
@@ -67,19 +68,17 @@ const ProducaoDashboard = () => {
     if (!selectedOrder) return;
     setSaving(true);
 
-    // Update each item's quantity_checked
     for (const item of items) {
-      if (item.quantity_checked !== null) {
-        await supabase.from("order_items").update({ quantity_checked: item.quantity_checked }).eq("id", item.id);
+      if (item.quantidade_conferida !== null) {
+        await supabase.from("itens_pedido").update({ quantidade_conferida: item.quantidade_conferida } as any).eq("id", item.id);
       }
     }
 
-    // Update order
-    await supabase.from("orders").update({
-      status: "finalizado" as const,
-      production_notes: productionNotes || null,
-      has_divergence: registerDivergence,
-    }).eq("id", selectedOrder.id);
+    await supabase.from("pedidos").update({
+      status: (registerDivergence ? "divergencia" : "embalado") as any,
+      obs_producao: productionNotes || null,
+      embalado_em: registerDivergence ? null : new Date().toISOString(),
+    } as any).eq("id", selectedOrder.id);
 
     setSelectedOrder(null);
     setSaving(false);
@@ -107,42 +106,39 @@ const ProducaoDashboard = () => {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-foreground">
-                    Pedido <span className="font-mono">#{order.order_number}</span>
+                    Pedido <span className="font-mono">{order.numero_pedido}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground">{order.profiles?.name}</div>
+                  <div className="text-xs text-muted-foreground">{order.clientes?.nome}</div>
                 </div>
               </div>
-              <span className={order.status === "em_lavagem" ? "badge-teal" : "badge-primary"}>
-                {order.status === "em_lavagem" ? "Lavando" : "Coletado"}
+              <span className={order.status === "em_producao" ? "badge-teal" : "badge-primary"}>
+                {order.status === "em_producao" ? "Produção" : "Coletado"}
               </span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Conference modal */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="app-card-elevated w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-base font-bold text-foreground">
-                  Conferência — <span className="font-mono">#{selectedOrder.order_number}</span>
+                  Conferência — <span className="font-mono">{selectedOrder.numero_pedido}</span>
                 </h3>
-                <p className="text-sm text-muted-foreground">{selectedOrder.profiles?.name}</p>
+                <p className="text-sm text-muted-foreground">{selectedOrder.clientes?.nome}</p>
               </div>
               <button className="text-muted-foreground hover:text-foreground text-lg" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
 
-            {/* Notes from previous steps */}
-            {(selectedOrder.client_notes || selectedOrder.collection_notes) && (
+            {(selectedOrder.obs_cliente || selectedOrder.obs_motorista) && (
               <div className="space-y-1 text-xs text-muted-foreground bg-secondary rounded-lg p-3">
-                {selectedOrder.client_notes && <p>📝 Cliente: {selectedOrder.client_notes}</p>}
-                {selectedOrder.collection_notes && <p>🚚 Coleta: {selectedOrder.collection_notes}</p>}
+                {selectedOrder.obs_cliente && <p>📝 Cliente: {selectedOrder.obs_cliente}</p>}
+                {selectedOrder.obs_motorista && <p>🚚 Coleta: {selectedOrder.obs_motorista}</p>}
               </div>
             )}
 
-            {/* Conference table */}
             <table className="data-table">
               <thead>
                 <tr>
@@ -157,14 +153,14 @@ const ProducaoDashboard = () => {
                   const diff = getDiff(item);
                   return (
                     <tr key={item.id}>
-                      <td className="font-medium text-foreground">{item.clothing_types?.name}</td>
-                      <td className="text-center font-mono">{item.quantity_registered}</td>
+                      <td className="font-medium text-foreground">{item.tipos_roupa?.nome || item.descricao_livre || "—"}</td>
+                      <td className="text-center font-mono">{item.quantidade_original}</td>
                       <td className="text-center">
                         <input
                           type="number"
                           className="field-input w-16 text-center font-mono font-bold py-1.5 text-xs mx-auto"
                           min={0}
-                          value={item.quantity_checked ?? ""}
+                          value={item.quantidade_conferida ?? ""}
                           onChange={(e) => updateChecked(item.id, parseInt(e.target.value) || 0)}
                           placeholder="—"
                         />
@@ -186,7 +182,6 @@ const ProducaoDashboard = () => {
               </tbody>
             </table>
 
-            {/* Production notes */}
             <div>
               <label className="field-label">Observações da produção</label>
               <textarea
@@ -197,7 +192,6 @@ const ProducaoDashboard = () => {
               />
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2">
               {hasDivergence ? (
                 <>
