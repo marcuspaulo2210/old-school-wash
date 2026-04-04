@@ -87,7 +87,7 @@ const ProducaoDashboard = () => {
   };
 
   return (
-    <AppLayout title="LavaApp" subtitle="Produção">
+    <AppLayout title="Amaná" subtitle="Produção">
       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         Pedidos em produção ({orders.length})
       </h3>

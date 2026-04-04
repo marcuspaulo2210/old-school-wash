@@ -36,7 +36,7 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <AppLayout title="LavaApp" subtitle="Painel Administrativo">
+    <AppLayout title="Amaná" subtitle="Painel Administrativo">
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {cards.map((c) => (

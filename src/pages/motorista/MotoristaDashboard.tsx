@@ -47,7 +47,7 @@ const MotoristaDashboard = () => {
   };
 
   return (
-    <AppLayout title="LavaApp" subtitle="Painel do Motorista">
+    <AppLayout title="Amaná" subtitle="Painel do Motorista">
       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         Rota de coletas ({orders.filter((o) => o.status === "aguardando_coleta").length} pendentes)
       </h3>
