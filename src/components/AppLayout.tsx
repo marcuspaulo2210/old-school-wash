@@ -11,16 +11,16 @@ interface AppLayoutProps {
   actions?: ReactNode;
 }
 
+const roleLabel: Record<string, string> = {
+  admin: "Administrador",
+  cliente: "Cliente",
+  motorista: "Motorista",
+  producao: "Produção",
+};
+
 const AppLayout = ({ children, title, subtitle, backTo, actions }: AppLayoutProps) => {
   const navigate = useNavigate();
   const { signOut, profile, role } = useAuth();
-
-  const roleLabel: Record<string, string> = {
-    admin: "Administrador",
-    cliente: "Cliente",
-    motorista: "Motorista",
-    producao: "Produção",
-  };
 
   return (
     <div className="app-container">
@@ -40,7 +40,7 @@ const AppLayout = ({ children, title, subtitle, backTo, actions }: AppLayoutProp
           <div className="flex items-center gap-3">
             {actions}
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-medium text-foreground">{profile?.name}</p>
+              <p className="text-xs font-medium text-foreground">{profile?.nome}</p>
               <p className="text-[10px] text-muted-foreground">{role ? roleLabel[role] : ""}</p>
             </div>
             <button onClick={signOut} className="p-2 text-muted-foreground hover:text-foreground transition-colors" title="Sair">

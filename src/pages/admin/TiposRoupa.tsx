@@ -3,41 +3,39 @@ import { supabase } from "@/integrations/supabase/client";
 import AppLayout from "@/components/AppLayout";
 import { Plus } from "lucide-react";
 
-interface ClothingType {
+interface TipoRoupa {
   id: string;
-  name: string;
-  unit: string;
-  sort_order: number;
-  active: boolean;
+  nome: string;
+  ativo: boolean;
+  criado_por_admin: boolean;
+  cliente_id: string | null;
 }
 
 const TiposRoupa = () => {
-  const [types, setTypes] = useState<ClothingType[]>([]);
+  const [types, setTypes] = useState<TipoRoupa[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [unit, setUnit] = useState<"PEÇA" | "CONJUNTO">("PEÇA");
+  const [nome, setNome] = useState("");
   const [saving, setSaving] = useState(false);
 
   const fetchTypes = async () => {
-    const { data } = await supabase.from("clothing_types").select("*").order("sort_order");
-    setTypes((data as ClothingType[]) || []);
+    const { data } = await supabase.from("tipos_roupa").select("*").order("nome");
+    setTypes((data as unknown as TipoRoupa[]) || []);
   };
 
   useEffect(() => { fetchTypes(); }, []);
 
   const handleAdd = async () => {
-    if (!name.trim()) return;
+    if (!nome.trim()) return;
     setSaving(true);
-    const maxOrder = types.reduce((m, t) => Math.max(m, t.sort_order), 0);
-    await supabase.from("clothing_types").insert({ name: name.trim(), unit, sort_order: maxOrder + 1 });
-    setName("");
+    await supabase.from("tipos_roupa").insert({ nome: nome.trim(), criado_por_admin: true } as any);
+    setNome("");
     setShowForm(false);
     setSaving(false);
     fetchTypes();
   };
 
-  const toggleActive = async (type: ClothingType) => {
-    await supabase.from("clothing_types").update({ active: !type.active }).eq("id", type.id);
+  const toggleActive = async (type: TipoRoupa) => {
+    await supabase.from("tipos_roupa").update({ ativo: !type.ativo } as any).eq("id", type.id);
     fetchTypes();
   };
 
@@ -56,14 +54,7 @@ const TiposRoupa = () => {
         <div className="app-card-elevated mb-4 space-y-4">
           <div>
             <label className="field-label">Nome</label>
-            <input className="field-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Lençol, Toalha..." />
-          </div>
-          <div>
-            <label className="field-label">Unidade</label>
-            <select className="field-select" value={unit} onChange={(e) => setUnit(e.target.value as "PEÇA" | "CONJUNTO")}>
-              <option value="PEÇA">Peça</option>
-              <option value="CONJUNTO">Conjunto</option>
-            </select>
+            <input className="field-input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Lençol, Toalha..." />
           </div>
           <button className="btn-success w-full btn-lg" onClick={handleAdd} disabled={saving}>
             {saving ? "Salvando..." : "Salvar tipo de roupa"}
@@ -79,16 +70,15 @@ const TiposRoupa = () => {
           </div>
         )}
         {types.map((t) => (
-          <div key={t.id} className={`list-item ${!t.active ? "opacity-40" : ""}`}>
+          <div key={t.id} className={`list-item ${!t.ativo ? "opacity-40" : ""}`}>
             <div>
-              <div className="text-sm font-bold text-foreground">{t.name}</div>
-              <div className="text-xs text-muted-foreground">{t.unit}</div>
+              <div className="text-sm font-bold text-foreground">{t.nome}</div>
             </div>
             <button
-              className={t.active ? "badge-success" : "badge-neutral"}
+              className={t.ativo ? "badge-success" : "badge-neutral"}
               onClick={() => toggleActive(t)}
             >
-              {t.active ? "Ativo" : "Inativo"}
+              {t.ativo ? "Ativo" : "Inativo"}
             </button>
           </div>
         ))}

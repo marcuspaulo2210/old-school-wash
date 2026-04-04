@@ -51,7 +51,6 @@ const Login = () => {
   return (
     <div className="app-container flex items-center justify-center p-4">
       <div className="w-full max-w-sm animate-fade-in">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
             <span className="text-xl font-extrabold text-primary-foreground font-mono">AM</span>
@@ -60,7 +59,6 @@ const Login = () => {
           <p className="text-sm text-muted-foreground font-medium mt-1">Lavanderia Hospitalar</p>
         </div>
 
-        {/* Form card */}
         <div className="app-card-elevated">
           <h2 className="text-base font-bold text-foreground mb-5">
             {isSignUp ? "Criar conta" : "Entrar"}
