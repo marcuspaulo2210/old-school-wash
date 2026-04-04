@@ -14,216 +14,305 @@ export type Database = {
   }
   public: {
     Tables: {
-      clothing_types: {
+      clientes: {
         Row: {
-          active: boolean
-          created_at: string
+          ativo: boolean
+          criado_em: string
+          email: string | null
+          endereco: string | null
           id: string
-          name: string
-          sort_order: number
-          unit: string
+          nome: string
+          telefone: string | null
+          tipo: Database["public"]["Enums"]["tipo_cliente"]
         }
         Insert: {
-          active?: boolean
-          created_at?: string
+          ativo?: boolean
+          criado_em?: string
+          email?: string | null
+          endereco?: string | null
           id?: string
-          name: string
-          sort_order?: number
-          unit?: string
+          nome: string
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_cliente"]
         }
         Update: {
-          active?: boolean
-          created_at?: string
+          ativo?: boolean
+          criado_em?: string
+          email?: string | null
+          endereco?: string | null
           id?: string
-          name?: string
-          sort_order?: number
-          unit?: string
+          nome?: string
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_cliente"]
         }
         Relationships: []
       }
-      order_items: {
+      historico_status: {
         Row: {
-          clothing_type_id: string
-          created_at: string
+          alterado_por: string
+          criado_em: string
           id: string
-          notes: string | null
-          order_id: string
-          quantity_checked: number | null
-          quantity_registered: number
+          observacao: string | null
+          pedido_id: string
+          status_anterior: Database["public"]["Enums"]["status_pedido"] | null
+          status_novo: Database["public"]["Enums"]["status_pedido"]
         }
         Insert: {
-          clothing_type_id: string
-          created_at?: string
+          alterado_por: string
+          criado_em?: string
           id?: string
-          notes?: string | null
-          order_id: string
-          quantity_checked?: number | null
-          quantity_registered?: number
+          observacao?: string | null
+          pedido_id: string
+          status_anterior?: Database["public"]["Enums"]["status_pedido"] | null
+          status_novo: Database["public"]["Enums"]["status_pedido"]
         }
         Update: {
-          clothing_type_id?: string
-          created_at?: string
+          alterado_por?: string
+          criado_em?: string
           id?: string
-          notes?: string | null
-          order_id?: string
-          quantity_checked?: number | null
-          quantity_registered?: number
+          observacao?: string | null
+          pedido_id?: string
+          status_anterior?: Database["public"]["Enums"]["status_pedido"] | null
+          status_novo?: Database["public"]["Enums"]["status_pedido"]
         }
         Relationships: [
           {
-            foreignKeyName: "order_items_clothing_type_id_fkey"
-            columns: ["clothing_type_id"]
+            foreignKeyName: "historico_status_alterado_por_fkey"
+            columns: ["alterado_por"]
             isOneToOne: false
-            referencedRelation: "clothing_types"
+            referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
+            foreignKeyName: "historico_status_pedido_id_fkey"
+            columns: ["pedido_id"]
             isOneToOne: false
-            referencedRelation: "orders"
+            referencedRelation: "pedidos"
             referencedColumns: ["id"]
           },
         ]
       }
-      orders: {
+      itens_pedido: {
         Row: {
-          charge_type: Database["public"]["Enums"]["charge_type"]
-          client_id: string
-          client_notes: string | null
-          collected_at: string | null
-          collection_notes: string | null
-          created_at: string
-          driver_id: string | null
-          has_divergence: boolean
+          descricao_livre: string | null
+          diferenca: number | null
           id: string
-          order_number: number
-          production_notes: string | null
-          status: Database["public"]["Enums"]["order_status"]
-          updated_at: string
-          weight_kg: number | null
+          pedido_id: string
+          quantidade_conferida: number | null
+          quantidade_original: number
+          tipo_roupa_id: string | null
         }
         Insert: {
-          charge_type?: Database["public"]["Enums"]["charge_type"]
-          client_id: string
-          client_notes?: string | null
-          collected_at?: string | null
-          collection_notes?: string | null
-          created_at?: string
-          driver_id?: string | null
-          has_divergence?: boolean
+          descricao_livre?: string | null
+          diferenca?: number | null
           id?: string
-          order_number?: number
-          production_notes?: string | null
-          status?: Database["public"]["Enums"]["order_status"]
-          updated_at?: string
-          weight_kg?: number | null
+          pedido_id: string
+          quantidade_conferida?: number | null
+          quantidade_original?: number
+          tipo_roupa_id?: string | null
         }
         Update: {
-          charge_type?: Database["public"]["Enums"]["charge_type"]
-          client_id?: string
-          client_notes?: string | null
-          collected_at?: string | null
-          collection_notes?: string | null
-          created_at?: string
-          driver_id?: string | null
-          has_divergence?: boolean
+          descricao_livre?: string | null
+          diferenca?: number | null
           id?: string
-          order_number?: number
-          production_notes?: string | null
-          status?: Database["public"]["Enums"]["order_status"]
-          updated_at?: string
-          weight_kg?: number | null
+          pedido_id?: string
+          quantidade_conferida?: number | null
+          quantidade_original?: number
+          tipo_roupa_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "orders_client_id_fkey"
-            columns: ["client_id"]
+            foreignKeyName: "itens_pedido_pedido_id_fkey"
+            columns: ["pedido_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "pedidos"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "orders_driver_id_fkey"
-            columns: ["driver_id"]
+            foreignKeyName: "itens_pedido_tipo_roupa_id_fkey"
+            columns: ["tipo_roupa_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "tipos_roupa"
             referencedColumns: ["id"]
           },
         ]
       }
-      profiles: {
+      pedidos: {
         Row: {
-          address: string | null
-          created_at: string
+          cliente_id: string
+          coletado_em: string | null
+          criado_em: string
+          embalado_em: string | null
+          entregue_em: string | null
           id: string
-          name: string
-          phone: string | null
-          updated_at: string
+          motorista_id: string | null
+          numero_pedido: string
+          obs_cliente: string | null
+          obs_motorista: string | null
+          obs_producao: string | null
+          peso_kg: number | null
+          quem_contou: Database["public"]["Enums"]["quem_contou_enum"]
+          status: Database["public"]["Enums"]["status_pedido"]
+          tipo_cobranca: Database["public"]["Enums"]["tipo_cobranca"]
+          valor_total: number | null
         }
         Insert: {
-          address?: string | null
-          created_at?: string
-          id: string
-          name: string
-          phone?: string | null
-          updated_at?: string
+          cliente_id: string
+          coletado_em?: string | null
+          criado_em?: string
+          embalado_em?: string | null
+          entregue_em?: string | null
+          id?: string
+          motorista_id?: string | null
+          numero_pedido?: string
+          obs_cliente?: string | null
+          obs_motorista?: string | null
+          obs_producao?: string | null
+          peso_kg?: number | null
+          quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
+          status?: Database["public"]["Enums"]["status_pedido"]
+          tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
+          valor_total?: number | null
         }
         Update: {
-          address?: string | null
-          created_at?: string
+          cliente_id?: string
+          coletado_em?: string | null
+          criado_em?: string
+          embalado_em?: string | null
+          entregue_em?: string | null
           id?: string
-          name?: string
-          phone?: string | null
-          updated_at?: string
+          motorista_id?: string | null
+          numero_pedido?: string
+          obs_cliente?: string | null
+          obs_motorista?: string | null
+          obs_producao?: string | null
+          peso_kg?: number | null
+          quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
+          status?: Database["public"]["Enums"]["status_pedido"]
+          tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
+          valor_total?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      user_roles: {
+      tipos_roupa: {
         Row: {
+          ativo: boolean
+          cliente_id: string | null
+          criado_por_admin: boolean
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          nome: string
         }
         Insert: {
+          ativo?: boolean
+          cliente_id?: string | null
+          criado_por_admin?: boolean
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          nome: string
         }
         Update: {
+          ativo?: boolean
+          cliente_id?: string | null
+          criado_por_admin?: boolean
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          nome?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tipos_roupa_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usuarios: {
+        Row: {
+          ativo: boolean
+          cliente_id: string | null
+          criado_em: string
+          email: string
+          id: string
+          nome: string
+          perfil: Database["public"]["Enums"]["perfil_usuario"]
+        }
+        Insert: {
+          ativo?: boolean
+          cliente_id?: string | null
+          criado_em?: string
+          email: string
+          id: string
+          nome: string
+          perfil?: Database["public"]["Enums"]["perfil_usuario"]
+        }
+        Update: {
+          ativo?: boolean
+          cliente_id?: string | null
+          criado_em?: string
+          email?: string
+          id?: string
+          nome?: string
+          perfil?: Database["public"]["Enums"]["perfil_usuario"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      create_user_profile: {
-        Args: { _name: string; _role?: Database["public"]["Enums"]["app_role"] }
+      criar_perfil_usuario: {
+        Args: {
+          _email: string
+          _nome: string
+          _perfil?: Database["public"]["Enums"]["perfil_usuario"]
+        }
         Returns: undefined
       }
-      has_role: {
+      meu_cliente_id: { Args: never; Returns: string }
+      tem_perfil: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
+          _perfil: Database["public"]["Enums"]["perfil_usuario"]
           _user_id: string
         }
         Returns: boolean
       }
     }
     Enums: {
-      app_role: "admin" | "cliente" | "motorista" | "producao"
-      charge_type: "por_peca" | "por_peso"
-      order_status:
-        | "cadastrado"
+      perfil_usuario: "admin" | "cliente" | "motorista" | "producao"
+      quem_contou_enum: "cliente" | "lavanderia"
+      status_pedido:
         | "aguardando_coleta"
         | "coletado"
-        | "em_lavagem"
-        | "finalizado"
+        | "em_producao"
+        | "embalado"
         | "entregue"
+        | "divergencia"
+      tipo_cliente: "clinica" | "hospital"
+      tipo_cobranca: "peca" | "peso"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -351,16 +440,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "cliente", "motorista", "producao"],
-      charge_type: ["por_peca", "por_peso"],
-      order_status: [
-        "cadastrado",
+      perfil_usuario: ["admin", "cliente", "motorista", "producao"],
+      quem_contou_enum: ["cliente", "lavanderia"],
+      status_pedido: [
         "aguardando_coleta",
         "coletado",
-        "em_lavagem",
-        "finalizado",
+        "em_producao",
+        "embalado",
         "entregue",
+        "divergencia",
       ],
+      tipo_cliente: ["clinica", "hospital"],
+      tipo_cobranca: ["peca", "peso"],
     },
   },
 } as const
