@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AppLayout from "@/components/AppLayout";
+import StatusBadge from "@/components/StatusBadge";
+import OrderCard from "@/components/OrderCard";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import { MessageSquare, TruckIcon } from "lucide-react";
 
 interface ItemPedido {
@@ -43,15 +46,6 @@ interface Order {
 
 interface Motorista { id: string; nome: string; }
 
-const statusLabels: Record<string, { label: string; badge: string }> = {
-  aguardando_coleta: { label: "Aguard. Coleta", badge: "badge-warning" },
-  coletado: { label: "Coletado", badge: "badge-primary" },
-  em_producao: { label: "Em Produção", badge: "badge-teal" },
-  embalado: { label: "Embalado", badge: "badge-success" },
-  entregue: { label: "Entregue", badge: "badge-purple" },
-  divergencia: { label: "Divergência", badge: "badge-danger" },
-};
-
 const AdminPedidos = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -62,6 +56,7 @@ const AdminPedidos = () => {
   const [motoristas, setMotoristas] = useState<Motorista[]>([]);
   const [assignMotorista, setAssignMotorista] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmation, setConfirmation] = useState<{ pedido: string; variant: "info" | "success" | "danger"; title: string } | null>(null);
 
   const fetchOrders = async () => {
     const { data } = await supabase
@@ -81,17 +76,10 @@ const AdminPedidos = () => {
   const openOrder = async (order: Order) => {
     setSelectedOrder(order);
     setAssignMotorista(order.motorista_id || "");
-
     const [{ data: items }, { data: hist }] = await Promise.all([
-      supabase.from("itens_pedido")
-        .select("id, descricao_livre, quantidade_original, quantidade_conferida, diferenca, tipos_roupa(nome)")
-        .eq("pedido_id", order.id),
-      supabase.from("historico_status")
-        .select("id, status_anterior, status_novo, observacao, criado_em, usuarios(nome)")
-        .eq("pedido_id", order.id)
-        .order("criado_em", { ascending: true }),
+      supabase.from("itens_pedido").select("id, descricao_livre, quantidade_original, quantidade_conferida, diferenca, tipos_roupa(nome)").eq("pedido_id", order.id),
+      supabase.from("historico_status").select("id, status_anterior, status_novo, observacao, criado_em, usuarios(nome)").eq("pedido_id", order.id).order("criado_em", { ascending: true }),
     ]);
-
     setOrderItems((items as unknown as ItemPedido[]) || []);
     setHistorico((hist as unknown as HistoricoItem[]) || []);
   };
@@ -108,33 +96,39 @@ const AdminPedidos = () => {
   const handleMarkEntregue = async () => {
     if (!selectedOrder || !user) return;
     setSaving(true);
-    await supabase.from("pedidos").update({
-      status: "entregue" as any,
-      entregue_em: new Date().toISOString(),
-    } as any).eq("id", selectedOrder.id);
+    await supabase.from("pedidos").update({ status: "entregue" as any, entregue_em: new Date().toISOString() } as any).eq("id", selectedOrder.id);
     await registrarMudancaStatus(selectedOrder.id, selectedOrder.status as any, "entregue", user.id, "Marcado como entregue pelo admin");
     setSaving(false);
+    const pedido = selectedOrder.numero_pedido;
     setSelectedOrder(null);
+    setConfirmation({ pedido, variant: "success", title: "Pedido Entregue" });
     fetchOrders();
   };
 
   const filtered = filter === "todos" ? orders : orders.filter((o) => o.status === filter);
 
+  const filterTabs = [
+    { key: "todos", label: "Todos" },
+    { key: "aguardando_coleta", label: "Aguard." },
+    { key: "coletado", label: "Coletados" },
+    { key: "em_producao", label: "Produção" },
+    { key: "embalado", label: "Embalado" },
+    { key: "divergencia", label: "⚠ Diverg." },
+    { key: "entregue", label: "Entregues" },
+  ];
+
   return (
     <AppLayout title="Pedidos" subtitle="Todos os pedidos do sistema" backTo="/admin">
+      {/* Filter tabs */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide">
-        {[
-          { key: "todos", label: "Todos" },
-          { key: "aguardando_coleta", label: "Aguard. Coleta" },
-          { key: "coletado", label: "Coletados" },
-          { key: "em_producao", label: "Em Produção" },
-          { key: "embalado", label: "Embalado" },
-          { key: "divergencia", label: "⚠ Divergências" },
-          { key: "entregue", label: "Entregues" },
-        ].map((f) => (
+        {filterTabs.map((f) => (
           <button
             key={f.key}
-            className={`btn text-xs whitespace-nowrap ${filter === f.key ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              filter === f.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-card border border-[rgba(255,255,255,0.07)] text-muted-foreground hover:text-foreground"
+            }`}
             onClick={() => setFilter(f.key)}
           >
             {f.label}
@@ -142,52 +136,44 @@ const AdminPedidos = () => {
         ))}
       </div>
 
+      {/* Order list */}
       <div className="space-y-2">
         {filtered.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-icon">📋</div>
-            <p className="empty-state-text">Nenhum pedido encontrado</p>
-          </div>
+          <div className="empty-state"><div className="empty-state-icon">📋</div><p className="empty-state-text">Nenhum pedido encontrado</p></div>
         )}
-        {filtered.map((order) => {
-          const s = statusLabels[order.status] || { label: order.status, badge: "badge-neutral" };
-          return (
-            <button key={order.id} className="list-item w-full text-left" onClick={() => openOrder(order)}>
-              <div>
-                <div className="text-sm font-bold text-foreground">
-                  Pedido <span className="font-mono">{order.numero_pedido}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {order.clientes?.nome || "—"} · {order.tipo_cobranca === "peca" ? "Por peça" : "Por peso"}
-                </div>
-              </div>
-              <span className={s.badge}>{s.label}</span>
-            </button>
-          );
-        })}
+        {filtered.map((order) => (
+          <OrderCard
+            key={order.id}
+            numeroPedido={order.numero_pedido}
+            clienteNome={order.clientes?.nome || "—"}
+            resumo={order.tipo_cobranca === "peca" ? "Por peça" : "Por peso"}
+            status={order.status}
+            criadoEm={order.criado_em}
+            obsCliente={order.obs_cliente}
+            onClick={() => openOrder(order)}
+          />
+        ))}
       </div>
 
+      {/* Detail modal */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="app-card-elevated w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-base font-bold text-foreground">
-                  Pedido <span className="font-mono">{selectedOrder.numero_pedido}</span>
+                  Pedido <span className="font-mono" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedOrder.clientes?.nome} ({selectedOrder.clientes?.tipo === "hospital" ? "Hospital" : "Clínica"})
-                </p>
+                <p className="text-sm text-muted-foreground">{selectedOrder.clientes?.nome} ({selectedOrder.clientes?.tipo === "hospital" ? "Hospital" : "Clínica"})</p>
               </div>
               <button className="text-muted-foreground hover:text-foreground text-lg" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <span className={(statusLabels[selectedOrder.status] || { badge: "badge-neutral" }).badge}>
-                {(statusLabels[selectedOrder.status] || { label: selectedOrder.status }).label}
+              <StatusBadge status={selectedOrder.status} />
+              <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-md bg-secondary text-muted-foreground">
+                {selectedOrder.tipo_cobranca === "peca" ? "Por peça" : "Por peso"}
               </span>
-              <span className="badge-neutral">{selectedOrder.tipo_cobranca === "peca" ? "Por peça" : "Por peso"}</span>
-              <span className="badge-neutral">Contagem: {selectedOrder.quem_contou}</span>
             </div>
 
             {/* Observações */}
@@ -215,16 +201,11 @@ const AdminPedidos = () => {
               </div>
             )}
 
-            {/* Items */}
+            {/* Items table */}
             {orderItems.length > 0 && (
               <table className="data-table">
                 <thead>
-                  <tr>
-                    <th>Peça</th>
-                    <th className="text-center">Orig.</th>
-                    <th className="text-center">Conf.</th>
-                    <th className="text-center">Dif.</th>
-                  </tr>
+                  <tr><th>Peça</th><th className="text-center">Orig.</th><th className="text-center">Conf.</th><th className="text-center">Dif.</th></tr>
                 </thead>
                 <tbody>
                   {orderItems.map((item) => (
@@ -233,12 +214,12 @@ const AdminPedidos = () => {
                       <td className="text-center font-mono">{item.quantidade_original}</td>
                       <td className="text-center font-mono">{item.quantidade_conferida ?? "—"}</td>
                       <td className="text-center font-mono font-bold">
-                        {item.diferenca === null ? "—" : item.diferenca === 0 ? (
-                          <span className="text-success">✓</span>
-                        ) : item.diferenca > 0 ? (
-                          <span className="text-success">+{item.diferenca}</span>
+                        {item.diferenca === null ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : item.diferenca === 0 ? (
+                          <span style={{ color: "#34c97a" }}>✓</span>
                         ) : (
-                          <span className="text-destructive">{item.diferenca}</span>
+                          <span style={{ color: "#e05050" }}>{item.diferenca > 0 ? `+${item.diferenca}` : item.diferenca}</span>
                         )}
                       </td>
                     </tr>
@@ -252,28 +233,17 @@ const AdminPedidos = () => {
               <div className="space-y-2">
                 <label className="field-label">Atribuir motorista</label>
                 <div className="flex gap-2">
-                  <select
-                    className="field-select flex-1"
-                    value={assignMotorista}
-                    onChange={(e) => setAssignMotorista(e.target.value)}
-                  >
+                  <select className="field-select flex-1" value={assignMotorista} onChange={(e) => setAssignMotorista(e.target.value)}>
                     <option value="">Selecione...</option>
-                    {motoristas.map((m) => (
-                      <option key={m.id} value={m.id}>{m.nome}</option>
-                    ))}
+                    {motoristas.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
                   </select>
-                  <button className="btn-primary text-xs px-4" onClick={handleAssignMotorista} disabled={!assignMotorista || saving}>
-                    Atribuir
-                  </button>
+                  <button className="btn-primary text-xs px-4" onClick={handleAssignMotorista} disabled={!assignMotorista || saving}>Atribuir</button>
                 </div>
               </div>
             )}
 
-            {/* Mark as delivered */}
             {selectedOrder.status === "embalado" && (
-              <button className="btn-success w-full btn-lg" onClick={handleMarkEntregue} disabled={saving}>
-                ✓ Marcar como Entregue
-              </button>
+              <button className="btn-success w-full btn-lg" onClick={handleMarkEntregue} disabled={saving}>✓ Marcar como Entregue</button>
             )}
 
             {/* Historico */}
@@ -288,8 +258,7 @@ const AdminPedidos = () => {
                       </span>
                       <span>
                         <strong className="text-foreground">{h.usuarios?.nome || "Sistema"}</strong>
-                        {" → "}
-                        <span className="text-primary">{(statusLabels[h.status_novo] || { label: h.status_novo }).label}</span>
+                        {" → "}<StatusBadge status={h.status_novo} className="text-[9px] py-0.5 px-1.5" />
                         {h.observacao && <span className="italic"> — {h.observacao}</span>}
                       </span>
                     </div>
@@ -301,6 +270,15 @@ const AdminPedidos = () => {
             <button className="btn-ghost w-full" onClick={() => setSelectedOrder(null)}>Fechar</button>
           </div>
         </div>
+      )}
+
+      {confirmation && (
+        <ConfirmationModal
+          numeroPedido={confirmation.pedido}
+          variant={confirmation.variant}
+          title={confirmation.title}
+          onClose={() => setConfirmation(null)}
+        />
       )}
     </AppLayout>
   );

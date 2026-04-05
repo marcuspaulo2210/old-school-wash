@@ -3,7 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AppLayout from "@/components/AppLayout";
-import { MapPin, Check, MessageSquare } from "lucide-react";
+import OrderCard from "@/components/OrderCard";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import { MapPin, MessageSquare } from "lucide-react";
 
 interface ItemPedido {
   id: string;
@@ -19,6 +21,7 @@ interface Pedido {
   obs_cliente: string | null;
   tipo_cobranca: string;
   quem_contou: string;
+  criado_em: string;
   clientes: { nome: string; endereco: string | null; tipo: string } | null;
 }
 
@@ -29,12 +32,13 @@ const MotoristaDashboard = () => {
   const [orderItems, setOrderItems] = useState<ItemPedido[]>([]);
   const [collectionNotes, setCollectionNotes] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [confirmation, setConfirmation] = useState<{ pedido: string } | null>(null);
 
   const fetchOrders = async () => {
     if (!user) return;
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, clientes(nome, endereco, tipo)")
+      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, clientes(nome, endereco, tipo)")
       .eq("motorista_id", user.id)
       .in("status", ["aguardando_coleta", "coletado"])
       .order("criado_em", { ascending: true });
@@ -47,10 +51,7 @@ const MotoristaDashboard = () => {
     setSelectedOrder(order);
     setCollectionNotes("");
     if (order.quem_contou === "cliente") {
-      const { data } = await supabase
-        .from("itens_pedido")
-        .select("id, descricao_livre, quantidade_original, tipos_roupa(nome)")
-        .eq("pedido_id", order.id);
+      const { data } = await supabase.from("itens_pedido").select("id, descricao_livre, quantidade_original, tipos_roupa(nome)").eq("pedido_id", order.id);
       setOrderItems((data as unknown as ItemPedido[]) || []);
     } else {
       setOrderItems([]);
@@ -60,24 +61,13 @@ const MotoristaDashboard = () => {
   const confirmCollection = async (order: Pedido) => {
     if (!user) return;
     setConfirming(true);
-
-    await supabase.from("pedidos").update({
-      status: "coletado" as any,
-      coletado_em: new Date().toISOString(),
-      obs_motorista: collectionNotes || null,
-    } as any).eq("id", order.id);
-
-    await registrarMudancaStatus(
-      order.id,
-      "aguardando_coleta",
-      "coletado",
-      user.id,
-      collectionNotes || "Coleta confirmada pelo motorista"
-    );
-
+    await supabase.from("pedidos").update({ status: "coletado" as any, coletado_em: new Date().toISOString(), obs_motorista: collectionNotes || null } as any).eq("id", order.id);
+    await registrarMudancaStatus(order.id, "aguardando_coleta", "coletado", user.id, collectionNotes || "Coleta confirmada pelo motorista");
+    const pedido = order.numero_pedido;
     setSelectedOrder(null);
     setCollectionNotes("");
     setConfirming(false);
+    setConfirmation({ pedido });
     fetchOrders();
   };
 
@@ -88,76 +78,51 @@ const MotoristaDashboard = () => {
       </h3>
 
       {orders.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">🚚</div>
-          <p className="empty-state-text">Nenhuma coleta atribuída</p>
-        </div>
+        <div className="empty-state"><div className="empty-state-icon">🚚</div><p className="empty-state-text">Nenhuma coleta atribuída</p></div>
       ) : (
         <div className="space-y-2">
           {orders.map((order) => (
-            <button
+            <OrderCard
               key={order.id}
-              className="list-item w-full text-left"
+              numeroPedido={order.numero_pedido}
+              clienteNome={order.clientes?.nome || "—"}
+              resumo={order.clientes?.endereco || "Endereço não informado"}
+              status={order.status}
+              criadoEm={order.criado_em}
+              obsCliente={order.obs_cliente}
               onClick={() => openOrder(order)}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  order.status === "coletado" ? "bg-success/15" : "bg-warning/15"
-                }`}>
-                  {order.status === "coletado"
-                    ? <Check className="w-5 h-5 text-success" />
-                    : <MapPin className="w-5 h-5 text-warning" />
-                  }
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-foreground">
-                    {order.clientes?.nome} · <span className="font-mono text-xs">{order.numero_pedido}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <MapPin className="w-3 h-3" /> {order.clientes?.endereco || "Endereço não informado"}
-                  </div>
-                </div>
-              </div>
-              <span className={order.status === "coletado" ? "badge-success" : "badge-warning"}>
-                {order.status === "coletado" ? "Coletado" : "Pendente"}
-              </span>
-            </button>
+            />
           ))}
         </div>
       )}
 
+      {/* Detail modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="app-card-elevated w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-base font-bold text-foreground">
-                  Pedido <span className="font-mono">{selectedOrder.numero_pedido}</span>
+                  Pedido <span className="font-mono" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedOrder.clientes?.nome} ({selectedOrder.clientes?.tipo === "hospital" ? "Hospital" : "Clínica"})
-                </p>
+                <p className="text-sm text-muted-foreground">{selectedOrder.clientes?.nome} ({selectedOrder.clientes?.tipo === "hospital" ? "Hospital" : "Clínica"})</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> {selectedOrder.clientes?.endereco || "—"}</p>
               </div>
               <button className="text-muted-foreground hover:text-foreground text-lg" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
 
-            {selectedOrder.clientes?.tipo === "hospital" || selectedOrder.quem_contou === "lavanderia" ? (
-              <div className="rounded-lg bg-warning/10 text-warning text-sm font-medium px-4 py-3">
-                ⚠ Coleta sem contagem prévia (hospital — contagem pela lavanderia)
+            {selectedOrder.quem_contou === "lavanderia" ? (
+              <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
+                ⚠ Coleta sem contagem prévia (hospital)
               </div>
             ) : (
               <>
-                <div className="rounded-lg bg-primary/10 text-primary text-sm font-medium px-4 py-3">
+                <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(91,141,246,0.12)", color: "#5b8df6" }}>
                   Contagem registrada pelo cliente
                 </div>
                 {orderItems.length > 0 && (
                   <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Peça</th>
-                        <th className="text-center">Qtd.</th>
-                      </tr>
-                    </thead>
+                    <thead><tr><th>Peça</th><th className="text-center">Qtd.</th></tr></thead>
                     <tbody>
                       {orderItems.map((item) => (
                         <tr key={item.id}>
@@ -182,18 +147,9 @@ const MotoristaDashboard = () => {
               <>
                 <div>
                   <label className="field-label">Observações da coleta</label>
-                  <textarea
-                    className="field-input min-h-[60px] resize-none"
-                    value={collectionNotes}
-                    onChange={(e) => setCollectionNotes(e.target.value)}
-                    placeholder="Alguma observação?"
-                  />
+                  <textarea className="field-input min-h-[60px] resize-none" value={collectionNotes} onChange={(e) => setCollectionNotes(e.target.value)} placeholder="Alguma observação?" />
                 </div>
-                <button
-                  className="btn-success w-full btn-lg"
-                  onClick={() => confirmCollection(selectedOrder)}
-                  disabled={confirming}
-                >
+                <button className="btn-success w-full btn-lg" onClick={() => confirmCollection(selectedOrder)} disabled={confirming}>
                   {confirming ? "Confirmando..." : "✓ Confirmar Coleta"}
                 </button>
               </>
@@ -202,6 +158,12 @@ const MotoristaDashboard = () => {
             <button className="btn-ghost w-full" onClick={() => setSelectedOrder(null)}>Fechar</button>
           </div>
         </div>
+      )}
+
+      {confirmation && (
+        <ConfirmationModal numeroPedido={confirmation.pedido} variant="success" title="Coleta Confirmada" onClose={() => setConfirmation(null)}>
+          <div className="flex justify-between"><span>Status:</span><span className="text-foreground">Coletado</span></div>
+        </ConfirmationModal>
       )}
     </AppLayout>
   );
