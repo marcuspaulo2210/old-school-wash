@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AppLayout from "@/components/AppLayout";
 import { Plus, Minus } from "lucide-react";
 
@@ -11,6 +12,8 @@ interface Pedido {
   numero_pedido: string;
   status: string;
   criado_em: string;
+  tipo_cobranca: string;
+  clientes: { tipo: string } | null;
 }
 
 const statusSteps = ["aguardando_coleta", "coletado", "em_producao", "embalado", "entregue"];
@@ -34,18 +37,31 @@ const ClienteDashboard = () => {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [clienteInfo, setClienteInfo] = useState<{ tipo: string } | null>(null);
 
   useEffect(() => {
-    supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome").then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
+    supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome")
+      .then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
+
     if (user && profile?.cliente_id) {
-      supabase.from("pedidos").select("id, numero_pedido, status, criado_em").eq("cliente_id", profile.cliente_id).order("criado_em", { ascending: false }).then(({ data }) => setOrders((data as unknown as Pedido[]) || []));
+      supabase.from("pedidos")
+        .select("id, numero_pedido, status, criado_em, tipo_cobranca, clientes(tipo)")
+        .eq("cliente_id", profile.cliente_id)
+        .order("criado_em", { ascending: false })
+        .then(({ data }) => setOrders((data as unknown as Pedido[]) || []));
+
+      supabase.from("clientes").select("tipo").eq("id", profile.cliente_id).single()
+        .then(({ data }) => {
+          if (data) setClienteInfo(data as any);
+        });
     }
   }, [user, profile]);
 
+  const isHospital = clienteInfo?.tipo === "hospital";
+
   const addItem = () => {
-    if (tiposRoupa.length > 0) {
-      setItems([...items, { tipo_roupa_id: tiposRoupa[0].id, descricao_livre: "", quantidade_original: 1 }]);
-    }
+    if (isHospital) return;
+    setItems([...items, { tipo_roupa_id: "", descricao_livre: "", quantidade_original: 1 }]);
   };
 
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
@@ -57,28 +73,47 @@ const ClienteDashboard = () => {
   const totalPieces = items.reduce((sum, i) => sum + i.quantidade_original, 0);
 
   const handleSubmit = async () => {
-    if (!user || !profile?.cliente_id || items.length === 0) return;
+    if (!user || !profile?.cliente_id) return;
+    if (!isHospital && items.length === 0) return;
     setSaving(true);
+
+    const quemContou = isHospital ? "lavanderia" : "cliente";
 
     const { data: order, error } = await supabase
       .from("pedidos")
-      .insert({ cliente_id: profile.cliente_id, tipo_cobranca: chargeType, obs_cliente: notes || null } as any)
+      .insert({
+        cliente_id: profile.cliente_id,
+        tipo_cobranca: chargeType,
+        obs_cliente: notes || null,
+        quem_contou: quemContou,
+      } as any)
       .select("id")
       .single();
 
     if (order && !error) {
-      const orderItems = items.map((i) => ({
-        pedido_id: (order as any).id,
-        tipo_roupa_id: i.tipo_roupa_id,
-        descricao_livre: i.descricao_livre || null,
-        quantidade_original: i.quantidade_original,
-      }));
-      await supabase.from("itens_pedido").insert(orderItems as any);
+      const orderId = (order as any).id;
+
+      // Register status history
+      await registrarMudancaStatus(orderId, null, "aguardando_coleta", user.id, "Pedido criado pelo cliente");
+
+      // Insert items only for clinics
+      if (!isHospital && items.length > 0) {
+        const orderItems = items.map((i) => ({
+          pedido_id: orderId,
+          tipo_roupa_id: i.tipo_roupa_id || null,
+          descricao_livre: i.descricao_livre || null,
+          quantidade_original: i.quantidade_original,
+        }));
+        await supabase.from("itens_pedido").insert(orderItems as any);
+      }
 
       setItems([]);
       setNotes("");
       setShowForm(false);
-      const { data } = await supabase.from("pedidos").select("id, numero_pedido, status, criado_em").eq("cliente_id", profile.cliente_id).order("criado_em", { ascending: false });
+      const { data } = await supabase.from("pedidos")
+        .select("id, numero_pedido, status, criado_em, tipo_cobranca, clientes(tipo)")
+        .eq("cliente_id", profile.cliente_id)
+        .order("criado_em", { ascending: false });
       setOrders((data as unknown as Pedido[]) || []);
     }
     setSaving(false);
@@ -120,8 +155,8 @@ const ClienteDashboard = () => {
           <h3 className="text-sm font-bold text-foreground">Novo Pedido</h3>
 
           <div>
-            <label className="field-label">Clínica</label>
-            <input className="field-input opacity-60" value={profile?.nome || ""} readOnly />
+            <label className="field-label">Clínica / Hospital</label>
+            <input className="field-input opacity-60" value={`${profile?.nome || ""} (${isHospital ? "Hospital" : "Clínica"})`} readOnly />
           </div>
 
           <div>
@@ -132,44 +167,48 @@ const ClienteDashboard = () => {
             </select>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="field-label mb-0">Peças</label>
-              <button className="btn-primary text-xs px-3 py-1.5" onClick={addItem}>
-                <Plus className="w-3 h-3" /> Adicionar
-              </button>
+          {isHospital ? (
+            <div className="rounded-lg bg-warning/10 text-warning text-sm font-medium px-4 py-3">
+              ⚠ Hospital — peças serão cadastradas pela lavanderia após a coleta.
             </div>
-            {items.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma peça adicionada</p>}
-            <div className="space-y-2">
-              {items.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <select
-                      className="field-select text-xs py-2"
-                      value={item.tipo_roupa_id}
-                      onChange={(e) => updateItem(idx, "tipo_roupa_id", e.target.value)}
-                    >
-                      {tiposRoupa.map((ct) => (
-                        <option key={ct.id} value={ct.id}>{ct.nome}</option>
-                      ))}
-                    </select>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="field-label mb-0">Peças</label>
+                <button className="btn-primary text-xs px-3 py-1.5" onClick={addItem}>
+                  <Plus className="w-3 h-3" /> Adicionar
+                </button>
+              </div>
+              {items.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma peça adicionada</p>}
+              <div className="space-y-2">
+                {items.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        className="field-input text-xs py-2"
+                        value={item.descricao_livre}
+                        onChange={(e) => updateItem(idx, "descricao_livre", e.target.value)}
+                        placeholder="Ex: Lençol, Toalha, Avental..."
+                      />
+                    </div>
+                    <input
+                      type="number"
+                      className="field-input w-20 text-center font-mono font-bold text-xs py-2"
+                      min={1}
+                      value={item.quantidade_original}
+                      onChange={(e) => updateItem(idx, "quantidade_original", parseInt(e.target.value) || 0)}
+                    />
+                    <button className="p-2 text-destructive hover:bg-destructive/10 rounded-lg" onClick={() => removeItem(idx)}>
+                      <Minus className="w-4 h-4" />
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    className="field-input w-20 text-center font-mono font-bold text-xs py-2"
-                    min={1}
-                    value={item.quantidade_original}
-                    onChange={(e) => updateItem(idx, "quantidade_original", parseInt(e.target.value) || 0)}
-                  />
-                  <button className="p-2 text-destructive hover:bg-destructive/10 rounded-lg" onClick={() => removeItem(idx)}>
-                    <Minus className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {items.length > 0 && (
+          {!isHospital && items.length > 0 && (
             <div className="flex justify-between items-center py-2 border-t border-border">
               <span className="text-xs font-semibold text-muted-foreground uppercase">Total de peças</span>
               <span className="text-lg font-extrabold text-foreground font-mono">{totalPieces}</span>
@@ -188,7 +227,11 @@ const ClienteDashboard = () => {
 
           <div className="flex gap-2">
             <button className="btn-ghost flex-1" onClick={() => { setShowForm(false); setItems([]); }}>Cancelar</button>
-            <button className="btn-success flex-1 btn-lg" onClick={handleSubmit} disabled={saving || items.length === 0}>
+            <button
+              className="btn-success flex-1 btn-lg"
+              onClick={handleSubmit}
+              disabled={saving || (!isHospital && items.length === 0)}
+            >
               {saving ? "Enviando..." : "Enviar Pedido"}
             </button>
           </div>
