@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AppLayout from "@/components/AppLayout";
 import { CheckCircle, AlertTriangle, Package } from "lucide-react";
 
@@ -19,10 +21,12 @@ interface Pedido {
   status: string;
   obs_cliente: string | null;
   obs_motorista: string | null;
-  clientes: { nome: string } | null;
+  quem_contou: string;
+  clientes: { nome: string; tipo: string } | null;
 }
 
 const ProducaoDashboard = () => {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<Pedido[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Pedido | null>(null);
   const [items, setItems] = useState<ItemPedido[]>([]);
@@ -32,7 +36,7 @@ const ProducaoDashboard = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, obs_cliente, obs_motorista, clientes(nome)")
+      .select("id, numero_pedido, status, obs_cliente, obs_motorista, quem_contou, clientes(nome, tipo)")
       .in("status", ["coletado", "em_producao"])
       .order("criado_em", { ascending: true });
     setOrders((data as unknown as Pedido[]) || []);
@@ -43,6 +47,14 @@ const ProducaoDashboard = () => {
   const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
     setProductionNotes("");
+
+    // Move to em_producao if coletado
+    if (order.status === "coletado" && user) {
+      await supabase.from("pedidos").update({ status: "em_producao" as any } as any).eq("id", order.id);
+      await registrarMudancaStatus(order.id, "coletado", "em_producao", user.id, "Pedido aberto na produção");
+      order.status = "em_producao";
+    }
+
     const { data } = await supabase
       .from("itens_pedido")
       .select("id, tipo_roupa_id, descricao_livre, quantidade_original, quantidade_conferida, diferenca, tipos_roupa(nome)")
@@ -59,26 +71,43 @@ const ProducaoDashboard = () => {
     return item.quantidade_conferida - item.quantidade_original;
   };
 
+  const allChecked = items.length > 0 && items.every((i) => i.quantidade_conferida !== null);
+
   const hasDivergence = items.some((i) => {
     const diff = getDiff(i);
     return diff !== null && diff !== 0;
   });
 
   const handleConfirm = async (registerDivergence: boolean) => {
-    if (!selectedOrder) return;
+    if (!selectedOrder || !user) return;
     setSaving(true);
 
+    // Save all checked quantities
     for (const item of items) {
       if (item.quantidade_conferida !== null) {
-        await supabase.from("itens_pedido").update({ quantidade_conferida: item.quantidade_conferida } as any).eq("id", item.id);
+        await supabase.from("itens_pedido").update({
+          quantidade_conferida: item.quantidade_conferida,
+        } as any).eq("id", item.id);
       }
     }
 
+    const newStatus = registerDivergence ? "divergencia" : "embalado";
+
     await supabase.from("pedidos").update({
-      status: (registerDivergence ? "divergencia" : "embalado") as any,
+      status: newStatus as any,
       obs_producao: productionNotes || null,
       embalado_em: registerDivergence ? null : new Date().toISOString(),
     } as any).eq("id", selectedOrder.id);
+
+    await registrarMudancaStatus(
+      selectedOrder.id,
+      "em_producao",
+      newStatus as any,
+      user.id,
+      registerDivergence
+        ? `Divergência registrada. ${productionNotes || ""}`
+        : productionNotes || "Conferência concluída e embalado"
+    );
 
     setSelectedOrder(null);
     setSaving(false);
@@ -139,48 +168,54 @@ const ProducaoDashboard = () => {
               </div>
             )}
 
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Peça</th>
-                  <th className="text-center">Orig.</th>
-                  <th className="text-center">Conf.</th>
-                  <th className="text-center">Dif.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const diff = getDiff(item);
-                  return (
-                    <tr key={item.id}>
-                      <td className="font-medium text-foreground">{item.tipos_roupa?.nome || item.descricao_livre || "—"}</td>
-                      <td className="text-center font-mono">{item.quantidade_original}</td>
-                      <td className="text-center">
-                        <input
-                          type="number"
-                          className="field-input w-16 text-center font-mono font-bold py-1.5 text-xs mx-auto"
-                          min={0}
-                          value={item.quantidade_conferida ?? ""}
-                          onChange={(e) => updateChecked(item.id, parseInt(e.target.value) || 0)}
-                          placeholder="—"
-                        />
-                      </td>
-                      <td className="text-center font-mono font-bold">
-                        {diff === null ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : diff === 0 ? (
-                          <span className="text-success">✓</span>
-                        ) : diff > 0 ? (
-                          <span className="text-success">+{diff}</span>
-                        ) : (
-                          <span className="text-destructive">{diff}</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {items.length === 0 ? (
+              <div className="rounded-lg bg-warning/10 text-warning text-sm font-medium px-4 py-3">
+                ⚠ Nenhum item cadastrado (hospital — contagem pela lavanderia)
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Peça</th>
+                    <th className="text-center">Orig.</th>
+                    <th className="text-center">Conf.</th>
+                    <th className="text-center">Dif.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => {
+                    const diff = getDiff(item);
+                    return (
+                      <tr key={item.id}>
+                        <td className="font-medium text-foreground">{item.tipos_roupa?.nome || item.descricao_livre || "—"}</td>
+                        <td className="text-center font-mono">{item.quantidade_original}</td>
+                        <td className="text-center">
+                          <input
+                            type="number"
+                            className="field-input w-16 text-center font-mono font-bold py-1.5 text-xs mx-auto"
+                            min={0}
+                            value={item.quantidade_conferida ?? ""}
+                            onChange={(e) => updateChecked(item.id, parseInt(e.target.value) || 0)}
+                            placeholder="—"
+                          />
+                        </td>
+                        <td className="text-center font-mono font-bold">
+                          {diff === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : diff === 0 ? (
+                            <span className="text-success">✓</span>
+                          ) : diff > 0 ? (
+                            <span className="text-success">+{diff}</span>
+                          ) : (
+                            <span className="text-destructive">{diff}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
 
             <div>
               <label className="field-label">Observações da produção</label>
@@ -196,14 +231,18 @@ const ProducaoDashboard = () => {
               {hasDivergence ? (
                 <>
                   <button className="btn-danger flex-1 btn-lg" onClick={() => handleConfirm(true)} disabled={saving}>
-                    <AlertTriangle className="w-4 h-4" /> Registrar Divergência
+                    <AlertTriangle className="w-4 h-4" /> Divergência
                   </button>
                   <button className="btn-success flex-1 btn-lg" onClick={() => handleConfirm(false)} disabled={saving}>
                     <CheckCircle className="w-4 h-4" /> Confirmar
                   </button>
                 </>
               ) : (
-                <button className="btn-success w-full btn-lg" onClick={() => handleConfirm(false)} disabled={saving}>
+                <button
+                  className="btn-success w-full btn-lg"
+                  onClick={() => handleConfirm(false)}
+                  disabled={saving || !allChecked}
+                >
                   <CheckCircle className="w-4 h-4" /> Confirmar e Embalar
                 </button>
               )}
