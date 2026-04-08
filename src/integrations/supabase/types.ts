@@ -47,6 +47,21 @@ export type Database = {
         }
         Relationships: []
       }
+      conexao_ok: {
+        Row: {
+          criado_em: string
+          id: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+        }
+        Relationships: []
+      }
       historico_status: {
         Row: {
           alterado_por: string
