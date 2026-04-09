@@ -18,32 +18,50 @@ export type Database = {
         Row: {
           ativo: boolean
           criado_em: string
+          dias_coleta: string[] | null
           email: string | null
           endereco: string | null
           id: string
           nome: string
+          observacoes: string | null
+          preco_kg: number | null
+          preco_peca: number | null
+          responsavel: string | null
           telefone: string | null
           tipo: Database["public"]["Enums"]["tipo_cliente"]
+          tipo_cobranca: Database["public"]["Enums"]["tipo_cobranca"]
         }
         Insert: {
           ativo?: boolean
           criado_em?: string
+          dias_coleta?: string[] | null
           email?: string | null
           endereco?: string | null
           id?: string
           nome: string
+          observacoes?: string | null
+          preco_kg?: number | null
+          preco_peca?: number | null
+          responsavel?: string | null
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
+          tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
         }
         Update: {
           ativo?: boolean
           criado_em?: string
+          dias_coleta?: string[] | null
           email?: string | null
           endereco?: string | null
           id?: string
           nome?: string
+          observacoes?: string | null
+          preco_kg?: number | null
+          preco_peca?: number | null
+          responsavel?: string | null
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
+          tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
         }
         Relationships: []
       }
@@ -61,6 +79,58 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      historico_precos: {
+        Row: {
+          alterado_por: string
+          cliente_id: string
+          criado_em: string
+          id: string
+          preco_anterior: number
+          preco_novo: number
+          tipo_roupa_id: string | null
+        }
+        Insert: {
+          alterado_por: string
+          cliente_id: string
+          criado_em?: string
+          id?: string
+          preco_anterior: number
+          preco_novo: number
+          tipo_roupa_id?: string | null
+        }
+        Update: {
+          alterado_por?: string
+          cliente_id?: string
+          criado_em?: string
+          id?: string
+          preco_anterior?: number
+          preco_novo?: number
+          tipo_roupa_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_precos_alterado_por_fkey"
+            columns: ["alterado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_precos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_precos_tipo_roupa_id_fkey"
+            columns: ["tipo_roupa_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_roupa"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       historico_status: {
         Row: {
@@ -157,11 +227,13 @@ export type Database = {
           cliente_id: string
           coletado_em: string | null
           criado_em: string
+          divergencia_resolvida: boolean
           embalado_em: string | null
           entregue_em: string | null
           id: string
           motorista_id: string | null
           numero_pedido: string
+          obs_admin: string | null
           obs_cliente: string | null
           obs_motorista: string | null
           obs_producao: string | null
@@ -175,11 +247,13 @@ export type Database = {
           cliente_id: string
           coletado_em?: string | null
           criado_em?: string
+          divergencia_resolvida?: boolean
           embalado_em?: string | null
           entregue_em?: string | null
           id?: string
           motorista_id?: string | null
           numero_pedido?: string
+          obs_admin?: string | null
           obs_cliente?: string | null
           obs_motorista?: string | null
           obs_producao?: string | null
@@ -193,11 +267,13 @@ export type Database = {
           cliente_id?: string
           coletado_em?: string | null
           criado_em?: string
+          divergencia_resolvida?: boolean
           embalado_em?: string | null
           entregue_em?: string | null
           id?: string
           motorista_id?: string | null
           numero_pedido?: string
+          obs_admin?: string | null
           obs_cliente?: string | null
           obs_motorista?: string | null
           obs_producao?: string | null
@@ -220,6 +296,80 @@ export type Database = {
             columns: ["motorista_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotas: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          dias_semana: string[] | null
+          id: string
+          motorista_id: string | null
+          nome: string
+          observacoes: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          dias_semana?: string[] | null
+          id?: string
+          motorista_id?: string | null
+          nome: string
+          observacoes?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          dias_semana?: string[] | null
+          id?: string
+          motorista_id?: string | null
+          nome?: string
+          observacoes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotas_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotas_clientes: {
+        Row: {
+          cliente_id: string
+          id: string
+          ordem: number
+          rota_id: string
+        }
+        Insert: {
+          cliente_id: string
+          id?: string
+          ordem?: number
+          rota_id: string
+        }
+        Update: {
+          cliente_id?: string
+          id?: string
+          ordem?: number
+          rota_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotas_clientes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotas_clientes_rota_id_fkey"
+            columns: ["rota_id"]
+            isOneToOne: false
+            referencedRelation: "rotas"
             referencedColumns: ["id"]
           },
         ]
