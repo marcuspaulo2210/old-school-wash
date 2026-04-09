@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { registrarMudancaStatus } from "@/lib/statusHistory";
-import AppLayout from "@/components/AppLayout";
+import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge from "@/components/StatusBadge";
-import OrderCard from "@/components/OrderCard";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { MessageSquare, TruckIcon } from "lucide-react";
+import { MessageSquare, TruckIcon, X } from "lucide-react";
 
 interface ItemPedido {
   id: string;
@@ -39,6 +38,7 @@ interface Order {
   obs_motorista: string | null;
   obs_producao: string | null;
   peso_kg: number | null;
+  valor_total: number | null;
   motorista_id: string | null;
   cliente_id: string;
   clientes: { nome: string; tipo: string } | null;
@@ -50,6 +50,8 @@ const AdminPedidos = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("todos");
+  const [filterCliente, setFilterCliente] = useState("");
+  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderItems, setOrderItems] = useState<ItemPedido[]>([]);
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
@@ -61,9 +63,9 @@ const AdminPedidos = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, motorista_id, cliente_id, clientes(nome, tipo)")
+      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo)")
       .order("criado_em", { ascending: false })
-      .limit(100);
+      .limit(200);
     setOrders((data as unknown as Order[]) || []);
   };
 
@@ -71,6 +73,8 @@ const AdminPedidos = () => {
     fetchOrders();
     supabase.from("usuarios").select("id, nome").eq("perfil", "motorista").eq("ativo", true)
       .then(({ data }) => setMotoristas((data as unknown as Motorista[]) || []));
+    supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome")
+      .then(({ data }) => setClientes((data as any) || []));
   }, []);
 
   const openOrder = async (order: Order) => {
@@ -105,7 +109,11 @@ const AdminPedidos = () => {
     fetchOrders();
   };
 
-  const filtered = filter === "todos" ? orders : orders.filter((o) => o.status === filter);
+  const filtered = orders.filter((o) => {
+    if (filter !== "todos" && o.status !== filter) return false;
+    if (filterCliente && o.cliente_id !== filterCliente) return false;
+    return true;
+  });
 
   const filterTabs = [
     { key: "todos", label: "Todos" },
@@ -118,95 +126,88 @@ const AdminPedidos = () => {
   ];
 
   return (
-    <AppLayout title="Pedidos" subtitle="Todos os pedidos do sistema" backTo="/admin">
-      {/* Filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide">
+    <AdminLayout title="Pedidos" subtitle="Todos os pedidos do sistema">
+      <div className="flex flex-wrap gap-2 mb-4">
         {filterTabs.map((f) => (
-          <button
-            key={f.key}
-            className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              filter === f.key
-                ? "bg-primary text-primary-foreground"
-                : "bg-card border border-[rgba(255,255,255,0.07)] text-muted-foreground hover:text-foreground"
-            }`}
+          <button key={f.key}
+            className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${filter === f.key ? "bg-primary text-primary-foreground" : "bg-card border border-[rgba(255,255,255,0.07)] text-muted-foreground hover:text-foreground"}`}
             onClick={() => setFilter(f.key)}
-          >
-            {f.label}
-          </button>
+          >{f.label}</button>
         ))}
+        <select className="field-select text-xs py-1.5 px-3 w-auto" value={filterCliente} onChange={(e) => setFilterCliente(e.target.value)}>
+          <option value="">Todos os clientes</option>
+          {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
       </div>
 
-      {/* Order list */}
-      <div className="space-y-2">
-        {filtered.length === 0 && (
-          <div className="empty-state"><div className="empty-state-icon">📋</div><p className="empty-state-text">Nenhum pedido encontrado</p></div>
-        )}
-        {filtered.map((order) => (
-          <OrderCard
-            key={order.id}
-            numeroPedido={order.numero_pedido}
-            clienteNome={order.clientes?.nome || "—"}
-            resumo={order.tipo_cobranca === "peca" ? "Por peça" : "Por peso"}
-            status={order.status}
-            criadoEm={order.criado_em}
-            obsCliente={order.obs_cliente}
-            onClick={() => openOrder(order)}
-          />
-        ))}
+      {/* Table */}
+      <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="data-table w-full">
+            <thead>
+              <tr>
+                <th>Nº Pedido</th>
+                <th>Cliente</th>
+                <th>Quem contou</th>
+                <th className="text-right">Peso</th>
+                <th className="text-right">Valor</th>
+                <th>Status</th>
+                <th className="text-center">Obs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-8">Nenhum pedido</td></tr>}
+              {filtered.map((order) => (
+                <tr key={order.id} className="cursor-pointer" onClick={() => openOrder(order)}>
+                  <td className="font-mono font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</td>
+                  <td className="text-foreground font-medium">{order.clientes?.nome || "—"}</td>
+                  <td className="text-muted-foreground capitalize">{order.quem_contou}</td>
+                  <td className="text-right font-mono">{order.peso_kg ? `${order.peso_kg} kg` : "—"}</td>
+                  <td className="text-right font-mono">{order.valor_total ? `R$ ${Number(order.valor_total).toFixed(2)}` : "—"}</td>
+                  <td><StatusBadge status={order.status} /></td>
+                  <td className="text-center">
+                    {(order.obs_cliente || order.obs_motorista || order.obs_producao) && (
+                      <MessageSquare className="w-3.5 h-3.5 inline" style={{ color: "#f0a020" }} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Detail modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-base font-bold text-foreground">
                   Pedido <span className="font-mono" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
                 </h3>
-                <p className="text-sm text-muted-foreground">{selectedOrder.clientes?.nome} ({selectedOrder.clientes?.tipo === "hospital" ? "Hospital" : "Clínica"})</p>
+                <p className="text-sm text-muted-foreground">{selectedOrder.clientes?.nome}</p>
               </div>
-              <button className="text-muted-foreground hover:text-foreground text-lg" onClick={() => setSelectedOrder(null)}>✕</button>
+              <button className="text-muted-foreground hover:text-foreground" onClick={() => setSelectedOrder(null)}><X className="w-5 h-5" /></button>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <StatusBadge status={selectedOrder.status} />
-              <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-md bg-secondary text-muted-foreground">
-                {selectedOrder.tipo_cobranca === "peca" ? "Por peça" : "Por peso"}
-              </span>
+              <span className="badge-neutral">{selectedOrder.tipo_cobranca === "peca" ? "Por peça" : "Por peso"}</span>
             </div>
 
-            {/* Observações */}
             {(selectedOrder.obs_cliente || selectedOrder.obs_motorista || selectedOrder.obs_producao) && (
               <div className="space-y-2 bg-secondary rounded-lg p-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Observações</p>
-                {selectedOrder.obs_cliente && (
-                  <div className="flex gap-2 text-xs text-muted-foreground">
-                    <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
-                    <span><strong className="text-foreground">Cliente:</strong> {selectedOrder.obs_cliente}</span>
-                  </div>
-                )}
-                {selectedOrder.obs_motorista && (
-                  <div className="flex gap-2 text-xs text-muted-foreground">
-                    <TruckIcon className="w-3 h-3 mt-0.5 shrink-0" />
-                    <span><strong className="text-foreground">Motorista:</strong> {selectedOrder.obs_motorista}</span>
-                  </div>
-                )}
-                {selectedOrder.obs_producao && (
-                  <div className="flex gap-2 text-xs text-muted-foreground">
-                    <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
-                    <span><strong className="text-foreground">Produção:</strong> {selectedOrder.obs_producao}</span>
-                  </div>
-                )}
+                {selectedOrder.obs_cliente && <div className="flex gap-2 text-xs text-muted-foreground"><MessageSquare className="w-3 h-3 mt-0.5 shrink-0" /><span><strong className="text-foreground">Cliente:</strong> {selectedOrder.obs_cliente}</span></div>}
+                {selectedOrder.obs_motorista && <div className="flex gap-2 text-xs text-muted-foreground"><TruckIcon className="w-3 h-3 mt-0.5 shrink-0" /><span><strong className="text-foreground">Motorista:</strong> {selectedOrder.obs_motorista}</span></div>}
+                {selectedOrder.obs_producao && <div className="flex gap-2 text-xs text-muted-foreground"><MessageSquare className="w-3 h-3 mt-0.5 shrink-0" /><span><strong className="text-foreground">Produção:</strong> {selectedOrder.obs_producao}</span></div>}
               </div>
             )}
 
-            {/* Items table */}
             {orderItems.length > 0 && (
               <table className="data-table">
-                <thead>
-                  <tr><th>Peça</th><th className="text-center">Orig.</th><th className="text-center">Conf.</th><th className="text-center">Dif.</th></tr>
-                </thead>
+                <thead><tr><th>Peça</th><th className="text-center">Orig.</th><th className="text-center">Conf.</th><th className="text-center">Dif.</th></tr></thead>
                 <tbody>
                   {orderItems.map((item) => (
                     <tr key={item.id}>
@@ -214,13 +215,7 @@ const AdminPedidos = () => {
                       <td className="text-center font-mono">{item.quantidade_original}</td>
                       <td className="text-center font-mono">{item.quantidade_conferida ?? "—"}</td>
                       <td className="text-center font-mono font-bold">
-                        {item.diferenca === null ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : item.diferenca === 0 ? (
-                          <span style={{ color: "#34c97a" }}>✓</span>
-                        ) : (
-                          <span style={{ color: "#e05050" }}>{item.diferenca > 0 ? `+${item.diferenca}` : item.diferenca}</span>
-                        )}
+                        {item.diferenca === null ? <span className="text-muted-foreground">—</span> : item.diferenca === 0 ? <span style={{ color: "#34c97a" }}>✓</span> : <span style={{ color: "#e05050" }}>{item.diferenca > 0 ? `+${item.diferenca}` : item.diferenca}</span>}
                       </td>
                     </tr>
                   ))}
@@ -228,7 +223,6 @@ const AdminPedidos = () => {
               </table>
             )}
 
-            {/* Assign motorista */}
             {selectedOrder.status === "aguardando_coleta" && (
               <div className="space-y-2">
                 <label className="field-label">Atribuir motorista</label>
@@ -246,7 +240,6 @@ const AdminPedidos = () => {
               <button className="btn-success w-full btn-lg" onClick={handleMarkEntregue} disabled={saving}>✓ Marcar como Entregue</button>
             )}
 
-            {/* Historico */}
             {historico.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Histórico</p>
@@ -273,14 +266,9 @@ const AdminPedidos = () => {
       )}
 
       {confirmation && (
-        <ConfirmationModal
-          numeroPedido={confirmation.pedido}
-          variant={confirmation.variant}
-          title={confirmation.title}
-          onClose={() => setConfirmation(null)}
-        />
+        <ConfirmationModal numeroPedido={confirmation.pedido} variant={confirmation.variant} title={confirmation.title} onClose={() => setConfirmation(null)} />
       )}
-    </AppLayout>
+    </AdminLayout>
   );
 };
 
