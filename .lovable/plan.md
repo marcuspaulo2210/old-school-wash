@@ -1,20 +1,39 @@
 
 
-# Plano: Renomear "LavaApp" para "Amaná Lavanderia Hospitalar"
+## Diagnóstico: Motorista nao consegue dar baixa como "coletado"
 
-Trocar todas as referências do nome "LavaApp" para "Amaná Lavanderia Hospitalar" em todo o projeto.
+### Causa raiz
 
-## Arquivos a alterar
+A politica de seguranca (RLS) **"Motorista atualiza para coletado"** na tabela `pedidos` tem apenas a clausula `USING` sem `WITH CHECK` explicito:
 
-1. **`index.html`** — título da página e meta description
-2. **`src/pages/Login.tsx`** — logo "LA" → "AM", título e subtítulo
-3. **`src/components/AppLayout.tsx`** — se houver referência ao nome
-4. **Qualquer outro arquivo** que mencione "LavaApp" ou "Lavanderia Industrial"
+```sql
+USING: (motorista_id = auth.uid()) AND (status = 'aguardando_coleta')
+```
 
-## Detalhes
+Quando `WITH CHECK` e omitido, o banco usa a mesma expressao do `USING` para validar a linha **apos** a atualizacao. Como o motorista muda o status para `coletado`, a linha atualizada nao satisfaz mais `status = 'aguardando_coleta'`, e o UPDATE e rejeitado silenciosamente.
 
-- Logo abreviação: "LA" → "AM" (Amaná)
-- Título: "LavaApp" → "Amaná"
-- Subtítulo: "Lavanderia Industrial" → "Lavanderia Hospitalar"
-- Meta description atualizada para refletir o novo nome
+### Correcao
+
+1. **Migração SQL**: Remover a politica atual e recria-la com `WITH CHECK` adequado:
+
+```sql
+DROP POLICY "Motorista atualiza para coletado" ON public.pedidos;
+
+CREATE POLICY "Motorista atualiza para coletado"
+ON public.pedidos
+FOR UPDATE
+TO authenticated
+USING (
+  motorista_id = auth.uid()
+  AND status = 'aguardando_coleta'::status_pedido
+)
+WITH CHECK (
+  motorista_id = auth.uid()
+  AND status = 'coletado'::status_pedido
+);
+```
+
+Isso permite que o motorista leia linhas com status `aguardando_coleta` (USING) e grave com status `coletado` (WITH CHECK).
+
+2. **Nenhuma alteracao de codigo** e necessaria -- o `MotoristaDashboard.tsx` ja envia os dados corretos.
 
