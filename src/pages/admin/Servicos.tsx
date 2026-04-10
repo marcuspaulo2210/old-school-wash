@@ -184,14 +184,16 @@ const Servicos = () => {
 
       {/* Delete confirmation */}
       {deleteTarget && (
-        <ConfirmationModal
-          title="Excluir serviço"
-          message={`Tem certeza que deseja excluir o serviço "${deleteTarget.nome}"? Esta ação não pode ser desfeita.`}
-          confirmLabel="Excluir"
-          variant="danger"
-          onConfirm={handleDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm text-center space-y-4 animate-fade-in">
+            <p className="text-sm font-bold text-foreground">Excluir serviço</p>
+            <p className="text-xs text-muted-foreground">Tem certeza que deseja excluir "{deleteTarget.nome}"? Esta ação não pode ser desfeita.</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1" onClick={() => setDeleteTarget(null)}>Cancelar</button>
+              <button className="btn-danger flex-1" onClick={handleDelete}>Excluir</button>
+            </div>
+          </div>
+        </div>
       )}
     </AdminLayout>
   );
