@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import ImpersonationBar from "@/components/ImpersonationBar";
 
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -11,6 +12,7 @@ import TiposRoupa from "./pages/admin/TiposRoupa";
 import AdminPedidos from "./pages/admin/Pedidos";
 import Clientes from "./pages/admin/Clientes";
 import Usuarios from "./pages/admin/Usuarios";
+import Servicos from "./pages/admin/Servicos";
 import Rotas from "./pages/admin/Rotas";
 import Precos from "./pages/admin/Precos";
 import Relatorios from "./pages/admin/Relatorios";
@@ -26,7 +28,10 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   const { user, loading, role } = useAuth();
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!user) return <Navigate to="/" replace />;
-  if (allowedRoles && role && !allowedRoles.includes(role)) return <Navigate to="/" replace />;
+  // Allow admin to access any route when impersonating
+  const isImpersonating = !!localStorage.getItem("amana_impersonating");
+  if (allowedRoles && role && !allowedRoles.includes(role) && !isImpersonating) return <Navigate to="/" replace />;
+  if (isImpersonating && role !== "admin") return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
@@ -40,19 +45,20 @@ const AppRoutes = () => (
     <Route path="/admin/pedidos" element={<ProtectedRoute allowedRoles={["admin"]}><AdminPedidos /></ProtectedRoute>} />
     <Route path="/admin/clientes" element={<ProtectedRoute allowedRoles={["admin"]}><Clientes /></ProtectedRoute>} />
     <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={["admin"]}><Usuarios /></ProtectedRoute>} />
+    <Route path="/admin/servicos" element={<ProtectedRoute allowedRoles={["admin"]}><Servicos /></ProtectedRoute>} />
     <Route path="/admin/rotas" element={<ProtectedRoute allowedRoles={["admin"]}><Rotas /></ProtectedRoute>} />
     <Route path="/admin/precos" element={<ProtectedRoute allowedRoles={["admin"]}><Precos /></ProtectedRoute>} />
     <Route path="/admin/relatorios" element={<ProtectedRoute allowedRoles={["admin"]}><Relatorios /></ProtectedRoute>} />
     <Route path="/admin/divergencias" element={<ProtectedRoute allowedRoles={["admin"]}><Divergencias /></ProtectedRoute>} />
 
     {/* Cliente */}
-    <Route path="/cliente" element={<ProtectedRoute allowedRoles={["cliente"]}><ClienteDashboard /></ProtectedRoute>} />
+    <Route path="/cliente" element={<ProtectedRoute allowedRoles={["cliente", "admin"]}><ClienteDashboard /></ProtectedRoute>} />
 
     {/* Motorista */}
-    <Route path="/motorista" element={<ProtectedRoute allowedRoles={["motorista"]}><MotoristaDashboard /></ProtectedRoute>} />
+    <Route path="/motorista" element={<ProtectedRoute allowedRoles={["motorista", "admin"]}><MotoristaDashboard /></ProtectedRoute>} />
 
     {/* Produção */}
-    <Route path="/producao" element={<ProtectedRoute allowedRoles={["producao"]}><ProducaoDashboard /></ProtectedRoute>} />
+    <Route path="/producao" element={<ProtectedRoute allowedRoles={["producao", "admin"]}><ProducaoDashboard /></ProtectedRoute>} />
 
     <Route path="*" element={<NotFound />} />
   </Routes>
@@ -65,6 +71,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ImpersonationBar />
           <AppRoutes />
         </AuthProvider>
       </BrowserRouter>

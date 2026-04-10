@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff, Copy, LogIn, Check, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Usuario {
   id: string;
@@ -10,6 +11,8 @@ interface Usuario {
   perfil: string;
   ativo: boolean;
   cliente_id: string | null;
+  permite_cobranca_peca: boolean;
+  permite_cobranca_peso: boolean;
   clientes?: { nome: string } | null;
 }
 
@@ -36,6 +39,20 @@ const generatePassword = () => {
   return pw;
 };
 
+const getPasswordStrength = (pw: string): { label: string; color: string; percent: number } => {
+  if (!pw) return { label: "", color: "", percent: 0 };
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[a-z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score <= 2) return { label: "Fraca", color: "hsl(var(--destructive))", percent: 33 };
+  if (score <= 4) return { label: "Média", color: "hsl(var(--warning))", percent: 66 };
+  return { label: "Forte", color: "hsl(var(--success))", percent: 100 };
+};
+
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -43,17 +60,25 @@ const Usuarios = () => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatedPw, setGeneratedPw] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [editingUser, setEditingUser] = useState<Usuario | null>(null);
 
   // Form
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [perfil, setPerfil] = useState<string>("cliente");
   const [clienteId, setClienteId] = useState("");
-  const [telefone, setTelefone] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [showSenha, setShowSenha] = useState(false);
+  const [showConfirmar, setShowConfirmar] = useState(false);
+  const [senhaError, setSenhaError] = useState("");
+
+  const navigate = useNavigate();
 
   const fetchAll = async () => {
     const [{ data: users }, { data: cls }] = await Promise.all([
-      supabase.from("usuarios").select("id, nome, email, perfil, ativo, cliente_id, clientes(nome)").order("nome"),
+      supabase.from("usuarios").select("id, nome, email, perfil, ativo, cliente_id, permite_cobranca_peca, permite_cobranca_peso, clientes(nome)").order("nome"),
       supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome"),
     ]);
     setUsuarios((users as unknown as Usuario[]) || []);
@@ -62,23 +87,38 @@ const Usuarios = () => {
 
   useEffect(() => { fetchAll(); }, []);
 
+  const resetForm = () => {
+    setNome(""); setEmail(""); setPerfil("cliente"); setClienteId("");
+    setSenha(""); setConfirmarSenha(""); setSenhaError(""); setShowSenha(false); setShowConfirmar(false);
+  };
+
+  const handleAutoGenerate = () => {
+    const pw = generatePassword();
+    setSenha(pw);
+    setConfirmarSenha(pw);
+    setSenhaError("");
+  };
+
   const handleCreate = async () => {
     if (!nome.trim() || !email.trim()) return;
+    if (!senha) { setSenhaError("Informe uma senha"); return; }
+    if (senha !== confirmarSenha) { setSenhaError("As senhas não coincidem"); return; }
+    if (senha.length < 6) { setSenhaError("Senha deve ter pelo menos 6 caracteres"); return; }
+    setSenhaError("");
     setSaving(true);
-    const pw = generatePassword();
 
     const { data, error } = await supabase.auth.signUp({
       email,
-      password: pw,
+      password: senha,
       options: { data: { name: nome } },
     });
 
     if (error || !data.user) {
       setSaving(false);
+      setSenhaError(error?.message || "Erro ao criar usuário");
       return;
     }
 
-    // The trigger/function should create the usuario record, but let's also insert directly
     await supabase.from("usuarios").upsert({
       id: data.user.id,
       nome: nome.trim(),
@@ -88,13 +128,56 @@ const Usuarios = () => {
     } as any);
 
     setSaving(false);
-    setGeneratedPw(pw);
+    setGeneratedPw(senha);
+  };
+
+  const handleCopy = async () => {
+    if (generatedPw) {
+      await navigator.clipboard.writeText(generatedPw);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const toggleAtivo = async (u: Usuario) => {
     await supabase.from("usuarios").update({ ativo: !u.ativo } as any).eq("id", u.id);
     fetchAll();
   };
+
+  const handleImpersonate = async (u: Usuario) => {
+    // Log impersonation
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      await supabase.from("log_impersonacao").insert({
+        admin_id: currentUser.id,
+        usuario_alvo_id: u.id,
+      } as any);
+    }
+
+    // Store admin session info and impersonation target
+    localStorage.setItem("amana_impersonating", JSON.stringify({
+      usuario_id: u.id,
+      usuario_nome: u.nome,
+      usuario_perfil: u.perfil,
+      usuario_cliente_id: u.cliente_id,
+    }));
+
+    // Navigate to the target user's dashboard
+    const dashboardMap: Record<string, string> = {
+      cliente: "/cliente",
+      motorista: "/motorista",
+      producao: "/producao",
+      admin: "/admin",
+    };
+    navigate(dashboardMap[u.perfil] || "/admin");
+  };
+
+  const toggleCobranca = async (u: Usuario, field: "permite_cobranca_peca" | "permite_cobranca_peso") => {
+    await supabase.from("usuarios").update({ [field]: !u[field] } as any).eq("id", u.id);
+    fetchAll();
+  };
+
+  const strength = getPasswordStrength(senha);
 
   const filtered = usuarios.filter((u) =>
     u.nome.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
@@ -106,11 +189,14 @@ const Usuarios = () => {
       {generatedPw && (
         <div className="app-card-elevated mb-4 space-y-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold" style={{ color: "#34c97a" }}>✓ Usuário criado com sucesso</h3>
-            <button onClick={() => { setGeneratedPw(null); setShowForm(false); setNome(""); setEmail(""); fetchAll(); }} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            <h3 className="text-sm font-bold" style={{ color: "hsl(var(--success))" }}>✓ Usuário criado com sucesso</h3>
+            <button onClick={() => { setGeneratedPw(null); setShowForm(false); resetForm(); fetchAll(); }} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
           </div>
-          <p className="text-xs text-muted-foreground">Senha gerada (exibida apenas uma vez):</p>
+          <p className="text-xs text-muted-foreground">Senha definida (exibida apenas uma vez):</p>
           <div className="bg-background rounded-lg px-4 py-3 font-mono text-lg font-bold text-foreground text-center select-all">{generatedPw}</div>
+          <button onClick={handleCopy} className="btn-primary w-full text-sm py-2.5">
+            {copied ? <><Check className="w-4 h-4" /> Copiada!</> : <><Copy className="w-4 h-4" /> Copiar senha</>}
+          </button>
           <p className="text-xs text-muted-foreground">Anote esta senha e envie ao usuário.</p>
         </div>
       )}
@@ -120,7 +206,7 @@ const Usuarios = () => {
         <div className="app-card-elevated mb-6 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-foreground">Novo Usuário</h3>
-            <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -130,6 +216,53 @@ const Usuarios = () => {
             <div>
               <label className="field-label">Email (login) *</label>
               <input className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Senha *</label>
+              <div className="relative">
+                <input
+                  className="field-input pr-10"
+                  type={showSenha ? "text" : "password"}
+                  value={senha}
+                  onChange={(e) => { setSenha(e.target.value); setSenhaError(""); }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSenha(!showSenha)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {senha && (
+                <div className="mt-2 space-y-1">
+                  <div className="progress-track">
+                    <div className="progress-fill" style={{ width: `${strength.percent}%`, background: strength.color }} />
+                  </div>
+                  <p className="text-[11px] font-semibold" style={{ color: strength.color }}>{strength.label}</p>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="field-label">Confirmar senha *</label>
+              <div className="relative">
+                <input
+                  className="field-input pr-10"
+                  type={showConfirmar ? "text" : "password"}
+                  value={confirmarSenha}
+                  onChange={(e) => { setConfirmarSenha(e.target.value); setSenhaError(""); }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmar(!showConfirmar)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmar ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {confirmarSenha && senha !== confirmarSenha && (
+                <p className="text-[11px] mt-1 text-destructive font-semibold">As senhas não coincidem</p>
+              )}
             </div>
             <div>
               <label className="field-label">Perfil</label>
@@ -150,7 +283,13 @@ const Usuarios = () => {
               </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">A senha será gerada automaticamente e exibida uma única vez.</p>
+
+          <button type="button" onClick={handleAutoGenerate} className="btn-ghost text-xs px-3 py-2">
+            <RefreshCw className="w-3.5 h-3.5" /> Gerar senha automática
+          </button>
+
+          {senhaError && <p className="text-xs text-destructive font-semibold">{senhaError}</p>}
+
           <button className="btn-primary w-full btn-lg" onClick={handleCreate} disabled={saving}>
             {saving ? "Criando..." : "Criar usuário"}
           </button>
@@ -170,17 +309,56 @@ const Usuarios = () => {
 
       <div className="space-y-2">
         {filtered.map((u) => (
-          <div key={u.id} className={`list-item ${!u.ativo ? "opacity-40" : ""}`}>
-            <div>
-              <div className="text-sm font-bold text-foreground">{u.nome}</div>
-              <div className="text-xs text-muted-foreground">{u.email} {u.clientes?.nome ? `• ${u.clientes.nome}` : ""}</div>
+          <div key={u.id} className={`app-card ${!u.ativo ? "opacity-40" : ""}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-foreground">{u.nome}</div>
+                <div className="text-xs text-muted-foreground">{u.email} {u.clientes?.nome ? `• ${u.clientes.nome}` : ""}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={perfilBadge[u.perfil] || "badge-neutral"}>{perfilLabel[u.perfil] || u.perfil}</span>
+                <button onClick={() => toggleAtivo(u)} className={u.ativo ? "badge-success" : "badge-neutral"}>
+                  {u.ativo ? "Ativo" : "Inativo"}
+                </button>
+                <button
+                  onClick={() => handleImpersonate(u)}
+                  className="btn-ghost text-xs px-2 py-1.5"
+                  title="Acessar como este usuário"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                </button>
+                {u.perfil === "cliente" && (
+                  <button onClick={() => setEditingUser(editingUser?.id === u.id ? null : u)} className="btn-ghost text-xs px-2 py-1.5">
+                    Permissões
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className={perfilBadge[u.perfil] || "badge-neutral"}>{perfilLabel[u.perfil] || u.perfil}</span>
-              <button onClick={() => toggleAtivo(u)} className={u.ativo ? "badge-success" : "badge-neutral"}>
-                {u.ativo ? "Ativo" : "Inativo"}
-              </button>
-            </div>
+
+            {/* Permissions panel for cliente */}
+            {editingUser?.id === u.id && u.perfil === "cliente" && (
+              <div className="mt-3 pt-3 border-t border-border space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Permissões de cobrança</p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <button
+                    onClick={() => toggleCobranca(u, "permite_cobranca_peca")}
+                    className={`w-9 h-5 rounded-full transition-colors relative ${u.permite_cobranca_peca ? "bg-primary" : "bg-secondary"}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${u.permite_cobranca_peca ? "left-[18px]" : "left-0.5"}`} />
+                  </button>
+                  <span className="text-sm text-foreground">Permite cobrança por peça</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <button
+                    onClick={() => toggleCobranca(u, "permite_cobranca_peso")}
+                    className={`w-9 h-5 rounded-full transition-colors relative ${u.permite_cobranca_peso ? "bg-primary" : "bg-secondary"}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${u.permite_cobranca_peso ? "left-[18px]" : "left-0.5"}`} />
+                  </button>
+                  <span className="text-sm text-foreground">Permite cobrança por peso</span>
+                </label>
+              </div>
+            )}
           </div>
         ))}
       </div>

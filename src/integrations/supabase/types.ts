@@ -222,6 +222,27 @@ export type Database = {
           },
         ]
       }
+      log_impersonacao: {
+        Row: {
+          acessado_em: string
+          admin_id: string
+          id: string
+          usuario_alvo_id: string
+        }
+        Insert: {
+          acessado_em?: string
+          admin_id: string
+          id?: string
+          usuario_alvo_id: string
+        }
+        Update: {
+          acessado_em?: string
+          admin_id?: string
+          id?: string
+          usuario_alvo_id?: string
+        }
+        Relationships: []
+      }
       pedidos: {
         Row: {
           cliente_id: string
@@ -374,6 +395,36 @@ export type Database = {
           },
         ]
       }
+      servicos: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          descricao: string | null
+          id: string
+          nome: string
+          preco_unitario: number
+          tipo_cobranca: Database["public"]["Enums"]["tipo_cobranca_servico"]
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          preco_unitario?: number
+          tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca_servico"]
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          preco_unitario?: number
+          tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca_servico"]
+        }
+        Relationships: []
+      }
       tipos_roupa: {
         Row: {
           ativo: boolean
@@ -415,6 +466,8 @@ export type Database = {
           id: string
           nome: string
           perfil: Database["public"]["Enums"]["perfil_usuario"]
+          permite_cobranca_peca: boolean
+          permite_cobranca_peso: boolean
         }
         Insert: {
           ativo?: boolean
@@ -424,6 +477,8 @@ export type Database = {
           id: string
           nome: string
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
+          permite_cobranca_peca?: boolean
+          permite_cobranca_peso?: boolean
         }
         Update: {
           ativo?: boolean
@@ -433,6 +488,8 @@ export type Database = {
           id?: string
           nome?: string
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
+          permite_cobranca_peca?: boolean
+          permite_cobranca_peso?: boolean
         }
         Relationships: [
           {
@@ -478,6 +535,7 @@ export type Database = {
         | "divergencia"
       tipo_cliente: "clinica" | "hospital"
       tipo_cobranca: "peca" | "peso"
+      tipo_cobranca_servico: "peca" | "peso" | "pacote"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -617,6 +675,7 @@ export const Constants = {
       ],
       tipo_cliente: ["clinica", "hospital"],
       tipo_cobranca: ["peca", "peso"],
+      tipo_cobranca_servico: ["peca", "peso", "pacote"],
     },
   },
 } as const

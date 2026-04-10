@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Building2,
   Shirt,
+  ListChecks,
   User,
   MapPin,
   DollarSign,
@@ -37,6 +38,7 @@ const menuCategories = [
     items: [
       { label: "Clientes", path: "/admin/clientes", icon: Building2 },
       { label: "Tipos de Roupa", path: "/admin/roupas", icon: Shirt },
+      { label: "Serviços", path: "/admin/servicos", icon: ListChecks },
       { label: "Usuários", path: "/admin/usuarios", icon: User },
       { label: "Rotas", path: "/admin/rotas", icon: MapPin },
     ],
