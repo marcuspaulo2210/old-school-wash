@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Plus, Search, X, Pencil, Trash2 } from "lucide-react";
-import ConfirmationModal from "@/components/ConfirmationModal";
+
 
 interface Servico {
   id: string;
