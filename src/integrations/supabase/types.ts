@@ -17,6 +17,9 @@ export type Database = {
       clientes: {
         Row: {
           ativo: boolean
+          atualizado_em: string
+          auth_user_id: string | null
+          bloqueado_ate: string | null
           criado_em: string
           dias_coleta: string[] | null
           email: string | null
@@ -26,13 +29,19 @@ export type Database = {
           observacoes: string | null
           preco_kg: number | null
           preco_peca: number | null
+          primeiro_acesso: boolean
+          quantidade_trocas_senha: number
           responsavel: string | null
           telefone: string | null
+          tentativas_login: number
           tipo: Database["public"]["Enums"]["tipo_cliente"]
           tipo_cobranca: Database["public"]["Enums"]["tipo_cobranca"]
         }
         Insert: {
           ativo?: boolean
+          atualizado_em?: string
+          auth_user_id?: string | null
+          bloqueado_ate?: string | null
           criado_em?: string
           dias_coleta?: string[] | null
           email?: string | null
@@ -42,13 +51,19 @@ export type Database = {
           observacoes?: string | null
           preco_kg?: number | null
           preco_peca?: number | null
+          primeiro_acesso?: boolean
+          quantidade_trocas_senha?: number
           responsavel?: string | null
           telefone?: string | null
+          tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
         }
         Update: {
           ativo?: boolean
+          atualizado_em?: string
+          auth_user_id?: string | null
+          bloqueado_ate?: string | null
           criado_em?: string
           dias_coleta?: string[] | null
           email?: string | null
@@ -58,8 +73,11 @@ export type Database = {
           observacoes?: string | null
           preco_kg?: number | null
           preco_peca?: number | null
+          primeiro_acesso?: boolean
+          quantidade_trocas_senha?: number
           responsavel?: string | null
           telefone?: string | null
+          tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
         }
@@ -259,7 +277,9 @@ export type Database = {
           obs_motorista: string | null
           obs_producao: string | null
           peso_kg: number | null
+          pronto_em: string | null
           quem_contou: Database["public"]["Enums"]["quem_contou_enum"]
+          saiu_em: string | null
           status: Database["public"]["Enums"]["status_pedido"]
           tipo_cobranca: Database["public"]["Enums"]["tipo_cobranca"]
           valor_total: number | null
@@ -279,7 +299,9 @@ export type Database = {
           obs_motorista?: string | null
           obs_producao?: string | null
           peso_kg?: number | null
+          pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
+          saiu_em?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
           valor_total?: number | null
@@ -299,7 +321,9 @@ export type Database = {
           obs_motorista?: string | null
           obs_producao?: string | null
           peso_kg?: number | null
+          pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
+          saiu_em?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
           valor_total?: number | null
@@ -432,6 +456,7 @@ export type Database = {
           criado_por_admin: boolean
           id: string
           nome: string
+          preco_unitario: number | null
         }
         Insert: {
           ativo?: boolean
@@ -439,6 +464,7 @@ export type Database = {
           criado_por_admin?: boolean
           id?: string
           nome: string
+          preco_unitario?: number | null
         }
         Update: {
           ativo?: boolean
@@ -446,6 +472,7 @@ export type Database = {
           criado_por_admin?: boolean
           id?: string
           nome?: string
+          preco_unitario?: number | null
         }
         Relationships: [
           {
@@ -468,6 +495,10 @@ export type Database = {
           perfil: Database["public"]["Enums"]["perfil_usuario"]
           permite_cobranca_peca: boolean
           permite_cobranca_peso: boolean
+          primeiro_acesso: boolean
+          quantidade_trocas_senha: number
+          telefone: string | null
+          username: string | null
         }
         Insert: {
           ativo?: boolean
@@ -479,6 +510,10 @@ export type Database = {
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
           permite_cobranca_peca?: boolean
           permite_cobranca_peso?: boolean
+          primeiro_acesso?: boolean
+          quantidade_trocas_senha?: number
+          telefone?: string | null
+          username?: string | null
         }
         Update: {
           ativo?: boolean
@@ -490,6 +525,10 @@ export type Database = {
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
           permite_cobranca_peca?: boolean
           permite_cobranca_peso?: boolean
+          primeiro_acesso?: boolean
+          quantidade_trocas_senha?: number
+          telefone?: string | null
+          username?: string | null
         }
         Relationships: [
           {
@@ -506,6 +545,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      buscar_cliente_por_nome: {
+        Args: { _nome: string }
+        Returns: {
+          auth_email: string
+          bloqueado: boolean
+        }[]
+      }
+      buscar_funcionario_login: {
+        Args: { _identificador: string }
+        Returns: {
+          auth_email: string
+        }[]
+      }
       criar_perfil_usuario: {
         Args: {
           _email: string
@@ -515,6 +567,14 @@ export type Database = {
         Returns: undefined
       }
       meu_cliente_id: { Args: never; Returns: string }
+      registrar_tentativa_login: {
+        Args: { _nome_clinica: string }
+        Returns: undefined
+      }
+      resetar_tentativas_login: {
+        Args: { _nome_clinica: string }
+        Returns: undefined
+      }
       tem_perfil: {
         Args: {
           _perfil: Database["public"]["Enums"]["perfil_usuario"]
@@ -533,6 +593,8 @@ export type Database = {
         | "embalado"
         | "entregue"
         | "divergencia"
+        | "pronto_para_entrega"
+        | "saiu_para_entrega"
       tipo_cliente: "clinica" | "hospital"
       tipo_cobranca: "peca" | "peso"
       tipo_cobranca_servico: "peca" | "peso" | "pacote"
@@ -672,6 +734,8 @@ export const Constants = {
         "embalado",
         "entregue",
         "divergencia",
+        "pronto_para_entrega",
+        "saiu_para_entrega",
       ],
       tipo_cliente: ["clinica", "hospital"],
       tipo_cobranca: ["peca", "peso"],
