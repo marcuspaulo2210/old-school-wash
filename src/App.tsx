@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import ImpersonationBar from "@/components/ImpersonationBar";
 
 import Login from "./pages/Login";
+import PrimeiroAcesso from "./pages/PrimeiroAcesso";
 import AdminDashboard from "./pages/admin/Dashboard";
 import TiposRoupa from "./pages/admin/TiposRoupa";
 import AdminPedidos from "./pages/admin/Pedidos";
@@ -25,9 +26,13 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
-  const { user, loading, role } = useAuth();
+  const { user, loading, role, profile } = useAuth();
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!user) return <Navigate to="/" replace />;
+  
+  // Redirect to first-access password change
+  if (profile?.primeiro_acesso) return <Navigate to="/primeiro-acesso" replace />;
+
   // Allow admin to access any route when impersonating
   const isImpersonating = !!localStorage.getItem("amana_impersonating");
   if (allowedRoles && role && !allowedRoles.includes(role) && !isImpersonating) return <Navigate to="/" replace />;
@@ -35,9 +40,18 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   return <>{children}</>;
 };
 
+const FirstAccessRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, profile } = useAuth();
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
+  if (!user) return <Navigate to="/" replace />;
+  if (!profile?.primeiro_acesso) return <Navigate to="/" replace />;
+  return <>{children}</>;
+};
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Login />} />
+    <Route path="/primeiro-acesso" element={<FirstAccessRoute><PrimeiroAcesso /></FirstAccessRoute>} />
 
     {/* Admin */}
     <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
