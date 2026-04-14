@@ -324,6 +324,55 @@ const Usuarios = () => {
         <input className="field-input pl-9" placeholder="Buscar usuário..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
+      {/* Pending password change requests */}
+      {solicitacoes.length > 0 && (
+        <div className="app-card-elevated mb-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4" style={{ color: "#f0a020" }} />
+            <h3 className="text-sm font-bold text-foreground">Solicitações de troca de senha ({solicitacoes.length})</h3>
+          </div>
+          {solicitacoes.map((s: any) => {
+            const user = usuarios.find((u) => u.id === s.user_id);
+            return (
+              <div key={s.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{user?.nome || "Usuário"}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email} • Solicitado em {new Date(s.criado_em).toLocaleDateString("pt-BR")}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="btn-primary text-xs px-3 py-1.5"
+                    onClick={() => handleApproveSolicitacao(s.id, s.user_id)}
+                    title="Autorizar +1 troca"
+                  >
+                    <Check className="w-3.5 h-3.5 mr-1" /> Autorizar
+                  </button>
+                  <button
+                    className="btn-ghost text-xs px-3 py-1.5"
+                    onClick={() => {
+                      setResetTarget(user || null);
+                      setResetSenha("");
+                      setResetConfirmar("");
+                      setResetError("");
+                    }}
+                    title="Redefinir senha manualmente"
+                  >
+                    <Key className="w-3.5 h-3.5 mr-1" /> Redefinir
+                  </button>
+                  <button
+                    className="text-xs px-2 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    onClick={() => handleRejectSolicitacao(s.id)}
+                    title="Rejeitar solicitação"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="space-y-2">
         {filtered.map((u) => (
           <div key={u.id} className={`app-card ${!u.ativo ? "opacity-40" : ""}`}>
