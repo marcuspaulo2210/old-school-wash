@@ -5,7 +5,8 @@ import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AppLayout from "@/components/AppLayout";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { CheckCircle, AlertTriangle, Package, Plus, X, Scale, Save } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CheckCircle, AlertTriangle, Package, Plus, X, Scale, Save, Search, Truck } from "lucide-react";
 
 interface ItemPedido {
   id: string;
@@ -40,6 +41,12 @@ interface NewProdItem {
   observacao: string;
 }
 
+interface ClienteGroup {
+  nome: string;
+  tipo: string;
+  pedidos: Pedido[];
+}
+
 const ProducaoDashboard = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Pedido[]>([]);
@@ -48,6 +55,10 @@ const ProducaoDashboard = () => {
   const [productionNotes, setProductionNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmation, setConfirmation] = useState<{ pedido: string; variant: "success" | "danger"; title: string } | null>(null);
+
+  // Filters
+  const [filterTipo, setFilterTipo] = useState("todas");
+  const [searchText, setSearchText] = useState("");
 
   // Production registration tabs
   const [prodTab, setProdTab] = useState<"pecas" | "peso">("pecas");
@@ -58,16 +69,53 @@ const ProducaoDashboard = () => {
   // Production items (new items added by production)
   const [newProdItems, setNewProdItems] = useState<NewProdItem[]>([]);
 
+  // Finalize modal
+  const [finalizingOrder, setFinalizingOrder] = useState<Pedido | null>(null);
+
+  // Selected client group
+  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
       .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, clientes(nome, tipo)")
-      .in("status", ["coletado", "em_producao"])
+      .in("status", ["coletado", "em_producao", "embalado"])
       .order("criado_em", { ascending: true });
     setOrders((data as unknown as Pedido[]) || []);
   };
 
   useEffect(() => { fetchOrders(); }, []);
+
+  // Group orders by client
+  const getGroups = (orderList: Pedido[]): ClienteGroup[] => {
+    const map: Record<string, ClienteGroup> = {};
+    for (const o of orderList) {
+      const key = o.clientes?.nome || "Sem cliente";
+      if (!map[key]) map[key] = { nome: key, tipo: o.clientes?.tipo || "clinica", pedidos: [] };
+      map[key].pedidos.push(o);
+    }
+    return Object.values(map).sort((a, b) => a.nome.localeCompare(b.nome));
+  };
+
+  // Filter orders
+  const filteredOrders = orders.filter(o => {
+    if (filterTipo === "clinica" && o.clientes?.tipo !== "clinica") return false;
+    if (filterTipo === "hospital" && o.clientes?.tipo !== "hospital") return false;
+    if (searchText && !o.clientes?.nome.toLowerCase().includes(searchText.toLowerCase())) return false;
+    return true;
+  });
+
+  // Separate entry orders vs production/embalado
+  const entryOrders = filteredOrders.filter(o => o.status === "coletado");
+  const productionOrders = filteredOrders.filter(o => o.status === "em_producao" || o.status === "embalado");
+
+  const entryGroups = getGroups(entryOrders);
+  const productionGroups = getGroups(productionOrders);
+
+  const tipoBadge = (tipo: string) => {
+    if (tipo === "hospital") return { label: "Hospital", bg: "rgba(155,114,244,0.12)", color: "#9b72f4" };
+    return { label: "Clínica", bg: "rgba(45,191,160,0.12)", color: "#2dbfa0" };
+  };
 
   const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
@@ -75,13 +123,6 @@ const ProducaoDashboard = () => {
     setPesoRecebido(order.peso_recebido_producao ? String(order.peso_recebido_producao) : "");
     setProdTab(order.tipo_cobranca === "peso" ? "peso" : "pecas");
     setNewProdItems([]);
-
-    // Auto-advance to em_producao if coletado
-    if (order.status === "coletado" && user) {
-      await supabase.from("pedidos").update({ status: "em_producao" as any } as any).eq("id", order.id);
-      await registrarMudancaStatus(order.id, "coletado", "em_producao", user.id, "Pedido aberto na produção");
-      order.status = "em_producao";
-    }
 
     const { data } = await supabase.from("itens_pedido")
       .select("id, tipo_roupa_id, descricao_livre, quantidade_original, quantidade_conferida, diferenca, origem, tipos_roupa(nome)")
@@ -98,7 +139,6 @@ const ProducaoDashboard = () => {
     return item.quantidade_conferida - item.quantidade_original;
   };
 
-  const allChecked = items.length > 0 && items.every((i) => i.quantidade_conferida !== null);
   const hasDivergence = items.some((i) => { const d = getDiff(i); return d !== null && d !== 0; });
 
   const addProdItem = () => setNewProdItems([...newProdItems, { descricao: "", quantidade: 1, observacao: "" }]);
@@ -112,14 +152,12 @@ const ProducaoDashboard = () => {
     if (!selectedOrder || !user) return;
     setSaving(true);
 
-    // Save existing items
     for (const item of items) {
       if (item.quantidade_conferida !== null) {
         await supabase.from("itens_pedido").update({ quantidade_conferida: item.quantidade_conferida } as any).eq("id", item.id);
       }
     }
 
-    // Save new production items
     if (newProdItems.length > 0) {
       const prodItems = newProdItems.filter(pi => pi.descricao.trim()).map(pi => ({
         pedido_id: selectedOrder.id,
@@ -130,7 +168,6 @@ const ProducaoDashboard = () => {
       if (prodItems.length > 0) await supabase.from("itens_pedido").insert(prodItems as any);
     }
 
-    // Update order
     await supabase.from("pedidos").update({
       obs_producao: productionNotes || null,
       peso_recebido_producao: pesoRecebido ? parseFloat(pesoRecebido) : null,
@@ -147,14 +184,12 @@ const ProducaoDashboard = () => {
     if (!selectedOrder || !user) return;
     setSaving(true);
 
-    // Save existing items
     for (const item of items) {
       if (item.quantidade_conferida !== null) {
         await supabase.from("itens_pedido").update({ quantidade_conferida: item.quantidade_conferida } as any).eq("id", item.id);
       }
     }
 
-    // Save new production items
     if (newProdItems.length > 0) {
       const prodItems = newProdItems.filter(pi => pi.descricao.trim()).map(pi => ({
         pedido_id: selectedOrder.id,
@@ -163,6 +198,12 @@ const ProducaoDashboard = () => {
         origem: "producao",
       }));
       if (prodItems.length > 0) await supabase.from("itens_pedido").insert(prodItems as any);
+    }
+
+    // If coletado, first move to em_producao
+    if (selectedOrder.status === "coletado") {
+      await supabase.from("pedidos").update({ status: "em_producao" as any } as any).eq("id", selectedOrder.id);
+      await registrarMudancaStatus(selectedOrder.id, "coletado", "em_producao", user.id, "Entrada registrada na produção");
     }
 
     const newStatus = registerDivergence ? "divergencia" : "embalado";
@@ -184,53 +225,178 @@ const ProducaoDashboard = () => {
     fetchOrders();
   };
 
-  return (
-    <AppLayout title="Amaná" subtitle="Produção">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        Pedidos em produção ({orders.length})
-      </h3>
+  const handleFinalize = async () => {
+    if (!finalizingOrder || !user) return;
+    setSaving(true);
 
-      {orders.length === 0 ? (
-        <div className="empty-state"><div className="empty-state-icon">📦</div><p className="empty-state-text">Nenhum pedido na produção</p></div>
-      ) : (
-        <div className="space-y-2">
-          {orders.map((order) => (
-            <button key={order.id} className="w-full text-left flex items-center justify-between p-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-card transition-all hover:bg-[#1a1e2a] hover:border-[rgba(255,255,255,0.13)]" onClick={() => openOrder(order)}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "rgba(45,191,160,0.12)" }}>
-                  <Package className="w-5 h-5" style={{ color: "#2dbfa0" }} />
+    await supabase.from("pedidos").update({
+      status: "pronto_para_entrega" as any,
+      pronto_em: new Date().toISOString(),
+    } as any).eq("id", finalizingOrder.id);
+
+    await registrarMudancaStatus(finalizingOrder.id, "embalado", "pronto_para_entrega", user.id, "Finalizado e liberado para entrega");
+
+    const pedido = finalizingOrder.numero_pedido;
+    setFinalizingOrder(null);
+    setSaving(false);
+    setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
+    fetchOrders();
+  };
+
+  const renderClientGroup = (group: ClienteGroup, showFinalize: boolean) => {
+    const badge = tipoBadge(group.tipo);
+    const embaladoCount = group.pedidos.filter(p => p.status === "embalado").length;
+    return (
+      <div key={group.nome} className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card overflow-hidden">
+        <button
+          className="w-full text-left p-4 hover:bg-[#1a1e2a] transition-all"
+          onClick={() => setSelectedClient(selectedClient === group.nome ? null : group.nome)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: badge.bg }}>
+                <Package className="w-5 h-5" style={{ color: badge.color }} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded" style={{ background: badge.bg, color: badge.color }}>
+                    {badge.label}
+                  </span>
+                  <span className="text-sm font-bold text-foreground">{group.nome}</span>
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-foreground">
-                    <span className="font-mono" style={{ color: "#5b8df6" }}>{order.numero_pedido}</span>
-                    {order.tipo_cobranca === "peso" && (
-                      <Scale className="w-3.5 h-3.5 inline-block ml-2" style={{ color: "#f0a020" }} />
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {order.clientes?.nome}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {group.pedidos.length} pedido(s)
+                  {embaladoCount > 0 && showFinalize && (
+                    <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(52,201,122,0.12)", color: "#34c97a" }}>
+                      {embaladoCount} embalado(s)
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <span className="text-muted-foreground text-lg">{selectedClient === group.nome ? "▾" : "▸"}</span>
+          </div>
+        </button>
+
+        {selectedClient === group.nome && (
+          <div className="border-t border-[rgba(255,255,255,0.07)] p-3 space-y-2">
+            {group.pedidos.map(order => (
+              <div key={order.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                <button className="flex-1 text-left" onClick={() => openOrder(order)}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</span>
+                    {order.tipo_cobranca === "peso" && <Scale className="w-3.5 h-3.5" style={{ color: "#f0a020" }} />}
                     {order.status_entrada === "salvo" && (
-                      <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(91,141,246,0.12)", color: "#5b8df6" }}>Salvo</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(91,141,246,0.12)", color: "#5b8df6" }}>Salvo</span>
                     )}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {order.tipo_cobranca === "peso"
+                      ? `${order.peso_informado_cliente || order.peso_kg || 0} kg`
+                      : order.quem_contou === "cliente" ? "Contagem do cliente" : "Sem contagem prévia"}
+                  </p>
+                </button>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={order.status} />
+                  {order.status === "embalado" && showFinalize && (
+                    <button
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg text-white flex items-center gap-1"
+                      style={{ background: "#34c97a" }}
+                      onClick={(e) => { e.stopPropagation(); setFinalizingOrder(order); }}
+                    >
+                      <Truck className="w-3.5 h-3.5" /> Liberar
+                    </button>
+                  )}
                 </div>
               </div>
-              <StatusBadge status={order.status} />
-            </button>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-      {/* Conference modal */}
+  const filterButtons = [
+    { key: "todas", label: "Todas" },
+    { key: "clinica", label: "Clínicas" },
+    { key: "hospital", label: "Hospitais" },
+  ];
+
+  return (
+    <AppLayout title="Amaná" subtitle="Produção">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {filterButtons.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilterTipo(f.key)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              filterTipo === f.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-card border border-[rgba(255,255,255,0.07)] text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input className="field-input pl-9" placeholder="Buscar clínica..." value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+      </div>
+
+      <Tabs defaultValue="entrada" className="w-full">
+        <TabsList className="w-full mb-3">
+          <TabsTrigger value="entrada" className="flex-1 gap-1">
+            <Package className="w-4 h-4" />
+            Entrada ({entryOrders.length})
+          </TabsTrigger>
+          <TabsTrigger value="producao" className="flex-1 gap-1">
+            <CheckCircle className="w-4 h-4" />
+            Produção ({productionOrders.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="entrada">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Entrada de roupas — pedidos coletados
+          </h3>
+          {entryGroups.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">📦</div><p className="empty-state-text">Nenhum pedido aguardando entrada</p></div>
+          ) : (
+            <div className="space-y-2">{entryGroups.map(g => renderClientGroup(g, false))}</div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="producao">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Em produção / Embalados
+          </h3>
+          {productionGroups.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">🏭</div><p className="empty-state-text">Nenhum pedido em produção</p></div>
+          ) : (
+            <div className="space-y-2">{productionGroups.map(g => renderClientGroup(g, true))}</div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Conference / Entry modal */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="text-base font-bold text-foreground">
-                  Entrada — <span className="font-mono" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
-                </h3>
-                <p className="text-sm text-muted-foreground">{selectedOrder.clientes?.nome}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  {(() => {
+                    const b = tipoBadge(selectedOrder.clientes?.tipo || "clinica");
+                    return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded" style={{ background: b.bg, color: b.color }}>{b.label}</span>;
+                  })()}
+                  <span className="font-mono text-sm font-bold" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
+                </div>
+                <h3 className="text-base font-bold text-foreground">{selectedOrder.clientes?.nome}</h3>
+                <StatusBadge status={selectedOrder.status} className="mt-1" />
               </div>
               <button className="text-muted-foreground hover:text-foreground text-lg" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
@@ -316,7 +482,6 @@ const ProducaoDashboard = () => {
                   </table>
                 )}
 
-                {/* New items added by production */}
                 {newProdItems.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">Peças adicionadas pela produção</p>
@@ -353,7 +518,6 @@ const ProducaoDashboard = () => {
                   />
                 </div>
 
-                {/* Weight comparison */}
                 {weightDiff !== null && pesoRecebido && (
                   <div className="rounded-lg px-4 py-3" style={{ background: weightDiff === 0 ? "rgba(52,201,122,0.08)" : "rgba(224,80,80,0.08)" }}>
                     {weightDiff === 0 ? (
@@ -389,7 +553,6 @@ const ProducaoDashboard = () => {
                 className="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all text-white flex items-center justify-center gap-2"
                 style={{ background: "#5b8df6" }}
                 onClick={() => {
-                  // Check for divergence
                   const hasWeightDiff = weightDiff !== null && weightDiff !== 0;
                   const hasItemDiff = hasDivergence;
                   if (hasWeightDiff || hasItemDiff) {
@@ -405,6 +568,32 @@ const ProducaoDashboard = () => {
             </div>
 
             <button className="btn-ghost w-full" onClick={() => setSelectedOrder(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Finalize confirmation modal */}
+      {finalizingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4 animate-fade-in">
+            <h3 className="text-sm font-bold text-foreground">Finalizar e liberar para entrega</h3>
+            <p className="text-sm text-muted-foreground">
+              Confirmar finalização do pedido{" "}
+              <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>{finalizingOrder.numero_pedido}</span>{" "}
+              para <strong className="text-foreground">{finalizingOrder.clientes?.nome}</strong>?
+            </p>
+            <p className="text-xs text-muted-foreground">O pedido será liberado para entrega pelo motorista.</p>
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" onClick={() => setFinalizingOrder(null)}>Cancelar</button>
+              <button
+                className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white flex items-center justify-center gap-2"
+                style={{ background: "#34c97a" }}
+                onClick={handleFinalize}
+                disabled={saving}
+              >
+                {saving ? "Finalizando..." : "✓ Confirmar"}
+              </button>
+            </div>
           </div>
         </div>
       )}
