@@ -43,6 +43,7 @@ const Clientes = () => {
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
 
   // Form state
   const [nome, setNome] = useState("");
@@ -65,12 +66,21 @@ const Clientes = () => {
   const [showConfirmar, setShowConfirmar] = useState(false);
   const [senhaError, setSenhaError] = useState("");
 
+  // Recusa
+  const [recusandoId, setRecusandoId] = useState<string | null>(null);
+  const [motivoRecusa, setMotivoRecusa] = useState("");
+
   const fetchClientes = async () => {
     const { data } = await supabase.from("clientes").select("*").order("nome");
     setClientes((data as unknown as Cliente[]) || []);
   };
 
-  useEffect(() => { fetchClientes(); }, []);
+  const fetchSolicitacoes = async () => {
+    const { data } = await supabase.from("solicitacoes_clientes").select("*").eq("status", "pendente").order("criado_em", { ascending: false });
+    setSolicitacoes((data as any) || []);
+  };
+
+  useEffect(() => { fetchClientes(); fetchSolicitacoes(); }, []);
 
   const resetForm = () => {
     setNome(""); setTipo("clinica"); setEndereco(""); setTelefone("");
