@@ -1,10 +1,12 @@
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  aguardando_coleta: { label: "Aguard. Coleta", color: "#9b72f4", bg: "rgba(155,114,244,0.12)" },
-  coletado:          { label: "Coletado",       color: "#f0a020", bg: "rgba(240,160,32,0.12)" },
-  em_producao:       { label: "Em Produção",    color: "#5b8df6", bg: "rgba(91,141,246,0.12)" },
-  embalado:          { label: "Embalado",       color: "#34c97a", bg: "rgba(52,201,122,0.12)" },
-  entregue:          { label: "Entregue",       color: "#6b7190", bg: "rgba(107,113,144,0.12)" },
-  divergencia:       { label: "Divergência",    color: "#e05050", bg: "rgba(224,80,80,0.12)" },
+  aguardando_coleta:    { label: "Aguard. Coleta",    color: "#9b72f4", bg: "rgba(155,114,244,0.12)" },
+  coletado:             { label: "Coletado",          color: "#f0a020", bg: "rgba(240,160,32,0.12)" },
+  em_producao:          { label: "Em Produção",       color: "#5b8df6", bg: "rgba(91,141,246,0.12)" },
+  embalado:             { label: "Embalado",          color: "#34c97a", bg: "rgba(52,201,122,0.12)" },
+  pronto_para_entrega:  { label: "Pronto p/ Entrega", color: "#2dbfa0", bg: "rgba(45,191,160,0.12)" },
+  saiu_para_entrega:    { label: "Saiu p/ Entrega",   color: "#f09820", bg: "rgba(240,152,32,0.12)" },
+  entregue:             { label: "Entregue",          color: "#6b7190", bg: "rgba(107,113,144,0.12)" },
+  divergencia:          { label: "Divergência",       color: "#e05050", bg: "rgba(224,80,80,0.12)" },
 };
 
 interface StatusBadgeProps {

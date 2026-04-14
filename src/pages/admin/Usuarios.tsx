@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Plus, Search, X, Eye, EyeOff, Copy, LogIn, Check, RefreshCw } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff, LogIn, Check, Key } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Usuario {
@@ -13,6 +13,7 @@ interface Usuario {
   cliente_id: string | null;
   permite_cobranca_peca: boolean;
   permite_cobranca_peso: boolean;
+  quantidade_trocas_senha: number;
   clientes?: { nome: string } | null;
 }
 
@@ -30,13 +31,6 @@ const perfilLabel: Record<string, string> = {
   cliente: "Cliente",
   motorista: "Motorista",
   producao: "Produção",
-};
-
-const generatePassword = () => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#";
-  let pw = "";
-  for (let i = 0; i < 12; i++) pw += chars[Math.floor(Math.random() * chars.length)];
-  return pw;
 };
 
 const getPasswordStrength = (pw: string): { label: string; color: string; percent: number } => {
@@ -59,8 +53,6 @@ const Usuarios = () => {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [generatedPw, setGeneratedPw] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
 
   // Form
@@ -74,11 +66,20 @@ const Usuarios = () => {
   const [showConfirmar, setShowConfirmar] = useState(false);
   const [senhaError, setSenhaError] = useState("");
 
+  // Password reset
+  const [resetTarget, setResetTarget] = useState<Usuario | null>(null);
+  const [resetSenha, setResetSenha] = useState("");
+  const [resetConfirmar, setResetConfirmar] = useState("");
+  const [showResetSenha, setShowResetSenha] = useState(false);
+  const [showResetConfirmar, setShowResetConfirmar] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetting, setResetting] = useState(false);
+
   const navigate = useNavigate();
 
   const fetchAll = async () => {
     const [{ data: users }, { data: cls }] = await Promise.all([
-      supabase.from("usuarios").select("id, nome, email, perfil, ativo, cliente_id, permite_cobranca_peca, permite_cobranca_peso, clientes(nome)").order("nome"),
+      supabase.from("usuarios").select("id, nome, email, perfil, ativo, cliente_id, permite_cobranca_peca, permite_cobranca_peso, quantidade_trocas_senha, clientes(nome)").order("nome"),
       supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome"),
     ]);
     setUsuarios((users as unknown as Usuario[]) || []);
@@ -90,13 +91,6 @@ const Usuarios = () => {
   const resetForm = () => {
     setNome(""); setEmail(""); setPerfil("cliente"); setClienteId("");
     setSenha(""); setConfirmarSenha(""); setSenhaError(""); setShowSenha(false); setShowConfirmar(false);
-  };
-
-  const handleAutoGenerate = () => {
-    const pw = generatePassword();
-    setSenha(pw);
-    setConfirmarSenha(pw);
-    setSenhaError("");
   };
 
   const handleCreate = async () => {
@@ -128,15 +122,9 @@ const Usuarios = () => {
     } as any);
 
     setSaving(false);
-    setGeneratedPw(senha);
-  };
-
-  const handleCopy = async () => {
-    if (generatedPw) {
-      await navigator.clipboard.writeText(generatedPw);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    setShowForm(false);
+    resetForm();
+    fetchAll();
   };
 
   const toggleAtivo = async (u: Usuario) => {
@@ -145,7 +133,6 @@ const Usuarios = () => {
   };
 
   const handleImpersonate = async (u: Usuario) => {
-    // Log impersonation
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (currentUser) {
       await supabase.from("log_impersonacao").insert({
@@ -154,7 +141,6 @@ const Usuarios = () => {
       } as any);
     }
 
-    // Store admin session info and impersonation target
     localStorage.setItem("amana_impersonating", JSON.stringify({
       usuario_id: u.id,
       usuario_nome: u.nome,
@@ -162,7 +148,6 @@ const Usuarios = () => {
       usuario_cliente_id: u.cliente_id,
     }));
 
-    // Navigate to the target user's dashboard
     const dashboardMap: Record<string, string> = {
       cliente: "/cliente",
       motorista: "/motorista",
@@ -177,7 +162,37 @@ const Usuarios = () => {
     fetchAll();
   };
 
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (!resetSenha) { setResetError("Informe a nova senha"); return; }
+    if (resetSenha !== resetConfirmar) { setResetError("As senhas não coincidem"); return; }
+    if (resetSenha.length < 6) { setResetError("Mínimo 6 caracteres"); return; }
+    setResetting(true);
+    setResetError("");
+
+    // Call edge function to reset password
+    const { error } = await supabase.functions.invoke("admin-reset-password", {
+      body: { user_id: resetTarget.id, new_password: resetSenha },
+    });
+
+    if (error) {
+      setResetError("Erro ao redefinir senha. Tente novamente.");
+      setResetting(false);
+      return;
+    }
+
+    // Reset counter
+    await supabase.from("usuarios").update({ quantidade_trocas_senha: 0 } as any).eq("id", resetTarget.id);
+
+    setResetting(false);
+    setResetTarget(null);
+    setResetSenha("");
+    setResetConfirmar("");
+    fetchAll();
+  };
+
   const strength = getPasswordStrength(senha);
+  const resetStrength = getPasswordStrength(resetSenha);
 
   const filtered = usuarios.filter((u) =>
     u.nome.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
@@ -185,24 +200,8 @@ const Usuarios = () => {
 
   return (
     <AdminLayout title="Usuários" subtitle="Gerenciamento de acessos">
-      {/* Generated password display */}
-      {generatedPw && (
-        <div className="app-card-elevated mb-4 space-y-3">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold" style={{ color: "hsl(var(--success))" }}>✓ Usuário criado com sucesso</h3>
-            <button onClick={() => { setGeneratedPw(null); setShowForm(false); resetForm(); fetchAll(); }} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
-          </div>
-          <p className="text-xs text-muted-foreground">Senha definida (exibida apenas uma vez):</p>
-          <div className="bg-background rounded-lg px-4 py-3 font-mono text-lg font-bold text-foreground text-center select-all">{generatedPw}</div>
-          <button onClick={handleCopy} className="btn-primary w-full text-sm py-2.5">
-            {copied ? <><Check className="w-4 h-4" /> Copiada!</> : <><Copy className="w-4 h-4" /> Copiar senha</>}
-          </button>
-          <p className="text-xs text-muted-foreground">Anote esta senha e envie ao usuário.</p>
-        </div>
-      )}
-
       {/* Form */}
-      {showForm && !generatedPw && (
+      {showForm && (
         <div className="app-card-elevated mb-6 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-foreground">Novo Usuário</h3>
@@ -218,7 +217,7 @@ const Usuarios = () => {
               <input className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div>
-              <label className="field-label">Senha *</label>
+              <label className="field-label">Senha inicial *</label>
               <div className="relative">
                 <input
                   className="field-input pr-10"
@@ -284,10 +283,6 @@ const Usuarios = () => {
             )}
           </div>
 
-          <button type="button" onClick={handleAutoGenerate} className="btn-ghost text-xs px-3 py-2">
-            <RefreshCw className="w-3.5 h-3.5" /> Gerar senha automática
-          </button>
-
           {senhaError && <p className="text-xs text-destructive font-semibold">{senhaError}</p>}
 
           <button className="btn-primary w-full btn-lg" onClick={handleCreate} disabled={saving}>
@@ -296,7 +291,7 @@ const Usuarios = () => {
         </div>
       )}
 
-      {!showForm && !generatedPw && (
+      {!showForm && (
         <button className="btn-primary text-xs px-3 py-2 mb-4" onClick={() => setShowForm(true)}>
           <Plus className="w-4 h-4" /> Novo Usuário
         </button>
@@ -313,7 +308,12 @@ const Usuarios = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-bold text-foreground">{u.nome}</div>
-                <div className="text-xs text-muted-foreground">{u.email} {u.clientes?.nome ? `• ${u.clientes.nome}` : ""}</div>
+                <div className="text-xs text-muted-foreground">
+                  {u.email} {u.clientes?.nome ? `• ${u.clientes.nome}` : ""}
+                  {u.quantidade_trocas_senha >= 2 && (
+                    <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(224,80,80,0.12)", color: "#e05050" }}>Limite de trocas</span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className={perfilBadge[u.perfil] || "badge-neutral"}>{perfilLabel[u.perfil] || u.perfil}</span>
@@ -326,6 +326,13 @@ const Usuarios = () => {
                   title="Acessar como este usuário"
                 >
                   <LogIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => { setResetTarget(u); setResetSenha(""); setResetConfirmar(""); setResetError(""); }}
+                  className="btn-ghost text-xs px-2 py-1.5"
+                  title="Redefinir senha"
+                >
+                  <Key className="w-3.5 h-3.5" />
                 </button>
                 {u.perfil === "cliente" && (
                   <button onClick={() => setEditingUser(editingUser?.id === u.id ? null : u)} className="btn-ghost text-xs px-2 py-1.5">
@@ -362,6 +369,55 @@ const Usuarios = () => {
           </div>
         ))}
       </div>
+
+      {/* Password reset modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4 animate-fade-in">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-foreground">Redefinir senha</h3>
+              <button onClick={() => setResetTarget(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-xs text-muted-foreground">Redefinir senha de <strong className="text-foreground">{resetTarget.nome}</strong></p>
+            
+            <div>
+              <label className="field-label">Nova senha</label>
+              <div className="relative">
+                <input className="field-input pr-10" type={showResetSenha ? "text" : "password"} value={resetSenha} onChange={(e) => { setResetSenha(e.target.value); setResetError(""); }} />
+                <button type="button" onClick={() => setShowResetSenha(!showResetSenha)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showResetSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {resetSenha && (
+                <div className="mt-2 space-y-1">
+                  <div className="progress-track">
+                    <div className="progress-fill" style={{ width: `${resetStrength.percent}%`, background: resetStrength.color }} />
+                  </div>
+                  <p className="text-[11px] font-semibold" style={{ color: resetStrength.color }}>{resetStrength.label}</p>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="field-label">Confirmar senha</label>
+              <div className="relative">
+                <input className="field-input pr-10" type={showResetConfirmar ? "text" : "password"} value={resetConfirmar} onChange={(e) => { setResetConfirmar(e.target.value); setResetError(""); }} />
+                <button type="button" onClick={() => setShowResetConfirmar(!showResetConfirmar)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showResetConfirmar ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {resetError && <p className="text-xs text-destructive font-semibold">{resetError}</p>}
+
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" onClick={() => setResetTarget(null)}>Cancelar</button>
+              <button className="btn-primary flex-1" onClick={handleResetPassword} disabled={resetting}>
+                {resetting ? "Salvando..." : "Redefinir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };
