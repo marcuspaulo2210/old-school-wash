@@ -28,12 +28,22 @@ const AdminDashboard = () => {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterCliente, setFilterCliente] = useState("");
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
+  const [pendingPasswordRequests, setPendingPasswordRequests] = useState(0);
 
   useEffect(() => {
     fetchOrders();
     supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome")
       .then(({ data }) => setClientes((data as any) || []));
+    fetchPendingRequests();
   }, []);
+
+  const fetchPendingRequests = async () => {
+    const { count } = await supabase
+      .from("solicitacoes_troca_senha")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pendente");
+    setPendingPasswordRequests(count || 0);
+  };
 
   const fetchOrders = async () => {
     const { data } = await supabase
