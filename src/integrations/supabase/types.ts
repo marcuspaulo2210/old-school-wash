@@ -467,6 +467,33 @@ export type Database = {
         }
         Relationships: []
       }
+      solicitacoes_troca_senha: {
+        Row: {
+          criado_em: string
+          id: string
+          resolvido_em: string | null
+          resolvido_por: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tipos_roupa: {
         Row: {
           ativo: boolean
