@@ -81,12 +81,14 @@ const Usuarios = () => {
   const navigate = useNavigate();
 
   const fetchAll = async () => {
-    const [{ data: users }, { data: cls }] = await Promise.all([
+    const [{ data: users }, { data: cls }, { data: solic }] = await Promise.all([
       supabase.from("usuarios").select("id, nome, email, perfil, ativo, cliente_id, permite_cobranca_peca, permite_cobranca_peso, quantidade_trocas_senha, clientes(nome)").order("nome"),
       supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("solicitacoes_troca_senha").select("*").eq("status", "pendente").order("criado_em", { ascending: false }),
     ]);
     setUsuarios((users as unknown as Usuario[]) || []);
     setClientes((cls as unknown as Cliente[]) || []);
+    setSolicitacoes((solic as any) || []);
   };
 
   useEffect(() => { fetchAll(); }, []);
