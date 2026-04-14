@@ -29,12 +29,14 @@ const AdminDashboard = () => {
   const [filterCliente, setFilterCliente] = useState("");
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [pendingPasswordRequests, setPendingPasswordRequests] = useState(0);
+  const [pendingClientRequests, setPendingClientRequests] = useState(0);
 
   useEffect(() => {
     fetchOrders();
     supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome")
       .then(({ data }) => setClientes((data as any) || []));
     fetchPendingRequests();
+    fetchPendingClientRequests();
   }, []);
 
   const fetchPendingRequests = async () => {
@@ -43,6 +45,14 @@ const AdminDashboard = () => {
       .select("*", { count: "exact", head: true })
       .eq("status", "pendente");
     setPendingPasswordRequests(count || 0);
+  };
+
+  const fetchPendingClientRequests = async () => {
+    const { count } = await supabase
+      .from("solicitacoes_clientes")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pendente");
+    setPendingClientRequests(count || 0);
   };
 
   const fetchOrders = async () => {
@@ -126,6 +136,27 @@ const AdminDashboard = () => {
             </div>
           </div>
           <a href="/admin/usuarios" className="btn-primary text-xs px-3 py-1.5">Ver solicitações</a>
+        </div>
+      )}
+
+      {/* Pending client requests */}
+      {pendingClientRequests > 0 && (
+        <div
+          className="rounded-xl p-4 mb-6 flex items-center justify-between border"
+          style={{ background: "rgba(45,191,160,0.08)", borderColor: "rgba(45,191,160,0.2)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "rgba(45,191,160,0.15)" }}>
+              <ClipboardList className="w-4 h-4" style={{ color: "#2dbfa0" }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {pendingClientRequests} solicitação(ões) de novo cliente pendente(s)
+              </p>
+              <p className="text-xs text-muted-foreground">Motoristas solicitaram cadastro de novos clientes</p>
+            </div>
+          </div>
+          <a href="/admin/clientes" className="btn-primary text-xs px-3 py-1.5">Ver solicitações</a>
         </div>
       )}
 

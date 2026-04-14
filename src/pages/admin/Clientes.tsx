@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Plus, Search, X, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff, Check, Bell } from "lucide-react";
 
 interface Cliente {
   id: string;
@@ -43,6 +43,7 @@ const Clientes = () => {
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
 
   // Form state
   const [nome, setNome] = useState("");
@@ -65,12 +66,21 @@ const Clientes = () => {
   const [showConfirmar, setShowConfirmar] = useState(false);
   const [senhaError, setSenhaError] = useState("");
 
+  // Recusa
+  const [recusandoId, setRecusandoId] = useState<string | null>(null);
+  const [motivoRecusa, setMotivoRecusa] = useState("");
+
   const fetchClientes = async () => {
     const { data } = await supabase.from("clientes").select("*").order("nome");
     setClientes((data as unknown as Cliente[]) || []);
   };
 
-  useEffect(() => { fetchClientes(); }, []);
+  const fetchSolicitacoes = async () => {
+    const { data } = await supabase.from("solicitacoes_clientes").select("*").eq("status", "pendente").order("criado_em", { ascending: false });
+    setSolicitacoes((data as any) || []);
+  };
+
+  useEffect(() => { fetchClientes(); fetchSolicitacoes(); }, []);
 
   const resetForm = () => {
     setNome(""); setTipo("clinica"); setEndereco(""); setTelefone("");
@@ -157,6 +167,39 @@ const Clientes = () => {
 
   const toggleDia = (d: string) => {
     setDiasColeta((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
+  };
+
+  const handleApproveSolicitacao = async (solic: any) => {
+    // Pre-fill the form with the solicitation data
+    resetForm();
+    setNome(solic.nome);
+    setTipo(solic.tipo === "hospital" ? "hospital" : "clinica");
+    setEmail(solic.email || "");
+    setTelefone(solic.telefone || "");
+    setObservacoes(solic.observacoes || "");
+    setShowForm(true);
+
+    // Mark as approved
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    await supabase.from("solicitacoes_clientes").update({
+      status: "aprovada",
+      resolvido_em: new Date().toISOString(),
+      resolvido_por: currentUser?.id,
+    } as any).eq("id", solic.id);
+    fetchSolicitacoes();
+  };
+
+  const handleRejectSolicitacao = async (solicId: string) => {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    await supabase.from("solicitacoes_clientes").update({
+      status: "recusada",
+      motivo_recusa: motivoRecusa || null,
+      resolvido_em: new Date().toISOString(),
+      resolvido_por: currentUser?.id,
+    } as any).eq("id", solicId);
+    setRecusandoId(null);
+    setMotivoRecusa("");
+    fetchSolicitacoes();
   };
 
   const strength = getPasswordStrength(senha);
@@ -330,6 +373,46 @@ const Clientes = () => {
           <button className="btn-primary w-full btn-lg" onClick={handleSave} disabled={saving}>
             {saving ? "Salvando..." : editing ? "Salvar alterações" : "Cadastrar cliente"}
           </button>
+        </div>
+      )}
+
+      {/* Pending client solicitations */}
+      {solicitacoes.length > 0 && (
+        <div className="app-card-elevated mb-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4" style={{ color: "#2dbfa0" }} />
+            <h3 className="text-sm font-bold text-foreground">Solicitações de novos clientes ({solicitacoes.length})</h3>
+          </div>
+          {solicitacoes.map((s: any) => (
+            <div key={s.id} className="p-3 rounded-lg bg-secondary/50 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{s.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {s.tipo === "hospital" ? "Hospital" : "Clínica"}
+                    {s.telefone ? ` • ${s.telefone}` : ""}
+                    {s.email ? ` • ${s.email}` : ""}
+                  </p>
+                  {s.observacoes && <p className="text-xs text-muted-foreground mt-1">Obs: {s.observacoes}</p>}
+                  <p className="text-[10px] text-muted-foreground mt-1">Solicitado em {new Date(s.criado_em).toLocaleDateString("pt-BR")}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button className="btn-primary text-xs px-3 py-1.5" onClick={() => handleApproveSolicitacao(s)} title="Aprovar e cadastrar">
+                    <Check className="w-3.5 h-3.5 mr-1" /> Aprovar
+                  </button>
+                  <button className="text-xs px-2 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors" onClick={() => setRecusandoId(recusandoId === s.id ? null : s.id)}>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              {recusandoId === s.id && (
+                <div className="flex gap-2">
+                  <input className="field-input text-xs flex-1" placeholder="Motivo da recusa (opcional)" value={motivoRecusa} onChange={(e) => setMotivoRecusa(e.target.value)} />
+                  <button className="btn-ghost text-xs px-3" onClick={() => handleRejectSolicitacao(s.id)}>Confirmar recusa</button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

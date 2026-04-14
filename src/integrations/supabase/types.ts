@@ -467,6 +467,51 @@ export type Database = {
         }
         Relationships: []
       }
+      solicitacoes_clientes: {
+        Row: {
+          criado_em: string
+          email: string | null
+          id: string
+          motivo_recusa: string | null
+          motorista_id: string
+          nome: string
+          observacoes: string | null
+          resolvido_em: string | null
+          resolvido_por: string | null
+          status: string
+          telefone: string | null
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string
+          email?: string | null
+          id?: string
+          motivo_recusa?: string | null
+          motorista_id: string
+          nome: string
+          observacoes?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          status?: string
+          telefone?: string | null
+          tipo?: string
+        }
+        Update: {
+          criado_em?: string
+          email?: string | null
+          id?: string
+          motivo_recusa?: string | null
+          motorista_id?: string
+          nome?: string
+          observacoes?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          status?: string
+          telefone?: string | null
+          tipo?: string
+        }
+        Relationships: []
+      }
       solicitacoes_troca_senha: {
         Row: {
           criado_em: string

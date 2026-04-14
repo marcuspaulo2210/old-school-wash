@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-type StatusPedido = "aguardando_coleta" | "coletado" | "em_producao" | "embalado" | "entregue" | "divergencia";
+type StatusPedido = "aguardando_coleta" | "coletado" | "em_producao" | "embalado" | "entregue" | "divergencia" | "pronto_para_entrega" | "saiu_para_entrega";
 
 export async function registrarMudancaStatus(
   pedidoId: string,
