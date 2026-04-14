@@ -36,6 +36,7 @@ const AdminDashboard = () => {
     supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome")
       .then(({ data }) => setClientes((data as any) || []));
     fetchPendingRequests();
+    fetchPendingClientRequests();
   }, []);
 
   const fetchPendingRequests = async () => {
@@ -44,6 +45,14 @@ const AdminDashboard = () => {
       .select("*", { count: "exact", head: true })
       .eq("status", "pendente");
     setPendingPasswordRequests(count || 0);
+  };
+
+  const fetchPendingClientRequests = async () => {
+    const { count } = await supabase
+      .from("solicitacoes_clientes")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pendente");
+    setPendingClientRequests(count || 0);
   };
 
   const fetchOrders = async () => {
