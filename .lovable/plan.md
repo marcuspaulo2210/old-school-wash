@@ -1,39 +1,37 @@
 
 
-## Diagnóstico: Motorista nao consegue dar baixa como "coletado"
+## Plano: Implementar funcionalidades pendentes
 
-### Causa raiz
+### 1. Limite de trocas de senha (2 trocas livres)
 
-A politica de seguranca (RLS) **"Motorista atualiza para coletado"** na tabela `pedidos` tem apenas a clausula `USING` sem `WITH CHECK` explicito:
+**Lógica:**
+- Na tela de troca de senha (`PrimeiroAcesso.tsx` e futura tela de "Alterar senha"), verificar `quantidade_trocas_senha` do usuário
+- Se >= 2: bloquear e exibir mensagem "Limite de trocas atingido. Solicite ao administrador."
+- Criar tabela `solicitacoes_troca_senha` (user_id, status: pendente/aprovada/rejeitada, criado_em)
+- Incrementar `quantidade_trocas_senha` após cada troca (exceto primeiro acesso)
 
-```sql
-USING: (motorista_id = auth.uid()) AND (status = 'aguardando_coleta')
-```
+**Painel Admin:**
+- Nova seção ou badge no dashboard: "Solicitações de senha pendentes"
+- Admin pode: redefinir senha via edge function, autorizar +1 troca, ou zerar contador
+- Migração SQL para criar a tabela + RLS
 
-Quando `WITH CHECK` e omitido, o banco usa a mesma expressao do `USING` para validar a linha **apos** a atualizacao. Como o motorista muda o status para `coletado`, a linha atualizada nao satisfaz mais `status = 'aguardando_coleta'`, e o UPDATE e rejeitado silenciosamente.
+### 2. Impersonação de usuários (Acessar como)
 
-### Correcao
+**Já existe parcialmente:** `ImpersonationBar.tsx` e lógica em `App.tsx` com `localStorage`.
 
-1. **Migração SQL**: Remover a politica atual e recria-la com `WITH CHECK` adequado:
+**Falta implementar:**
+- Botão "Acessar como" em cada linha de `Usuarios.tsx`
+- Ao clicar: salvar dados no `localStorage`, registrar log na tabela `log_impersonacao`, redirecionar ao dashboard do perfil do usuário
+- A tabela `log_impersonacao` já foi criada na migração anterior — verificar se existe no banco
 
-```sql
-DROP POLICY "Motorista atualiza para coletado" ON public.pedidos;
+### Arquivos a criar/editar
 
-CREATE POLICY "Motorista atualiza para coletado"
-ON public.pedidos
-FOR UPDATE
-TO authenticated
-USING (
-  motorista_id = auth.uid()
-  AND status = 'aguardando_coleta'::status_pedido
-)
-WITH CHECK (
-  motorista_id = auth.uid()
-  AND status = 'coletado'::status_pedido
-);
-```
+| Arquivo | Ação |
+|---|---|
+| `supabase/migrations/new.sql` | Criar `solicitacoes_troca_senha`, verificar `log_impersonacao` |
+| `src/pages/admin/Usuarios.tsx` | Adicionar botão "Acessar como" + seção de solicitações |
+| `src/pages/PrimeiroAcesso.tsx` | Incrementar contador (excluindo primeiro acesso) |
+| `src/pages/admin/Dashboard.tsx` | Badge de solicitações pendentes |
 
-Isso permite que o motorista leia linhas com status `aguardando_coleta` (USING) e grave com status `coletado` (WITH CHECK).
-
-2. **Nenhuma alteracao de codigo** e necessaria -- o `MotoristaDashboard.tsx` ja envia os dados corretos.
+### Nenhuma função existente será removida.
 
