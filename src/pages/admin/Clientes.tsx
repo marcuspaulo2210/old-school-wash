@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Plus, Search, X, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff, Check, Bell } from "lucide-react";
 
 interface Cliente {
   id: string;
