@@ -196,6 +196,23 @@ const Usuarios = () => {
     fetchAll();
   };
 
+  const handleApproveSolicitacao = async (solicId: string, userId: string) => {
+    // Authorize +1 change: reset counter to 1 (allows one more change)
+    await supabase.from("usuarios").update({ quantidade_trocas_senha: 1 } as any).eq("id", userId);
+    await supabase.from("solicitacoes_troca_senha").update({ status: "aprovada", resolvido_em: new Date().toISOString(), resolvido_por: (await supabase.auth.getUser()).data.user?.id } as any).eq("id", solicId);
+    fetchAll();
+  };
+
+  const handleRejectSolicitacao = async (solicId: string) => {
+    await supabase.from("solicitacoes_troca_senha").update({ status: "rejeitada", resolvido_em: new Date().toISOString(), resolvido_por: (await supabase.auth.getUser()).data.user?.id } as any).eq("id", solicId);
+    fetchAll();
+  };
+
+  const handleZerarContador = async (userId: string) => {
+    await supabase.from("usuarios").update({ quantidade_trocas_senha: 0 } as any).eq("id", userId);
+    fetchAll();
+  };
+
   const strength = getPasswordStrength(senha);
   const resetStrength = getPasswordStrength(resetSenha);
 
