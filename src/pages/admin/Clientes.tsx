@@ -376,6 +376,46 @@ const Clientes = () => {
         </div>
       )}
 
+      {/* Pending client solicitations */}
+      {solicitacoes.length > 0 && (
+        <div className="app-card-elevated mb-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4" style={{ color: "#2dbfa0" }} />
+            <h3 className="text-sm font-bold text-foreground">Solicitações de novos clientes ({solicitacoes.length})</h3>
+          </div>
+          {solicitacoes.map((s: any) => (
+            <div key={s.id} className="p-3 rounded-lg bg-secondary/50 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{s.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {s.tipo === "hospital" ? "Hospital" : "Clínica"}
+                    {s.telefone ? ` • ${s.telefone}` : ""}
+                    {s.email ? ` • ${s.email}` : ""}
+                  </p>
+                  {s.observacoes && <p className="text-xs text-muted-foreground mt-1">Obs: {s.observacoes}</p>}
+                  <p className="text-[10px] text-muted-foreground mt-1">Solicitado em {new Date(s.criado_em).toLocaleDateString("pt-BR")}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button className="btn-primary text-xs px-3 py-1.5" onClick={() => handleApproveSolicitacao(s)} title="Aprovar e cadastrar">
+                    <Check className="w-3.5 h-3.5 mr-1" /> Aprovar
+                  </button>
+                  <button className="text-xs px-2 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors" onClick={() => setRecusandoId(recusandoId === s.id ? null : s.id)}>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              {recusandoId === s.id && (
+                <div className="flex gap-2">
+                  <input className="field-input text-xs flex-1" placeholder="Motivo da recusa (opcional)" value={motivoRecusa} onChange={(e) => setMotivoRecusa(e.target.value)} />
+                  <button className="btn-ghost text-xs px-3" onClick={() => handleRejectSolicitacao(s.id)}>Confirmar recusa</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative mb-4">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
