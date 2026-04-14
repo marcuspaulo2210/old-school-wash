@@ -200,6 +200,7 @@ export type Database = {
           descricao_livre: string | null
           diferenca: number | null
           id: string
+          origem: string
           pedido_id: string
           quantidade_conferida: number | null
           quantidade_original: number
@@ -209,6 +210,7 @@ export type Database = {
           descricao_livre?: string | null
           diferenca?: number | null
           id?: string
+          origem?: string
           pedido_id: string
           quantidade_conferida?: number | null
           quantidade_original?: number
@@ -218,6 +220,7 @@ export type Database = {
           descricao_livre?: string | null
           diferenca?: number | null
           id?: string
+          origem?: string
           pedido_id?: string
           quantidade_conferida?: number | null
           quantidade_original?: number
@@ -276,12 +279,17 @@ export type Database = {
           obs_cliente: string | null
           obs_motorista: string | null
           obs_producao: string | null
+          peso_informado_cliente: number | null
           peso_kg: number | null
+          peso_recebido_producao: number | null
           pronto_em: string | null
           quem_contou: Database["public"]["Enums"]["quem_contou_enum"]
+          rascunho: boolean
           saiu_em: string | null
           status: Database["public"]["Enums"]["status_pedido"]
+          status_entrada: string
           tipo_cobranca: Database["public"]["Enums"]["tipo_cobranca"]
+          tipo_registro_producao: string | null
           valor_total: number | null
         }
         Insert: {
@@ -298,12 +306,17 @@ export type Database = {
           obs_cliente?: string | null
           obs_motorista?: string | null
           obs_producao?: string | null
+          peso_informado_cliente?: number | null
           peso_kg?: number | null
+          peso_recebido_producao?: number | null
           pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
+          rascunho?: boolean
           saiu_em?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
+          status_entrada?: string
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
+          tipo_registro_producao?: string | null
           valor_total?: number | null
         }
         Update: {
@@ -320,12 +333,17 @@ export type Database = {
           obs_cliente?: string | null
           obs_motorista?: string | null
           obs_producao?: string | null
+          peso_informado_cliente?: number | null
           peso_kg?: number | null
+          peso_recebido_producao?: number | null
           pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
+          rascunho?: boolean
           saiu_em?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
+          status_entrada?: string
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
+          tipo_registro_producao?: string | null
           valor_total?: number | null
         }
         Relationships: [

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff } from "lucide-react";
 
 interface Cliente {
   id: string;
@@ -17,9 +17,24 @@ interface Cliente {
   tipo_cobranca?: string;
   dias_coleta?: string[];
   observacoes?: string | null;
+  auth_user_id?: string | null;
 }
 
 const diasSemana = ["seg", "ter", "qua", "qui", "sex", "sab"];
+
+const getPasswordStrength = (pw: string): { label: string; color: string; percent: number } => {
+  if (!pw) return { label: "", color: "", percent: 0 };
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[a-z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score <= 2) return { label: "Fraca", color: "hsl(var(--destructive))", percent: 33 };
+  if (score <= 4) return { label: "Média", color: "hsl(var(--warning))", percent: 66 };
+  return { label: "Forte", color: "hsl(var(--success))", percent: 100 };
+};
 
 const Clientes = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -27,6 +42,7 @@ const Clientes = () => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
 
   // Form state
   const [nome, setNome] = useState("");
@@ -42,18 +58,26 @@ const Clientes = () => {
   const [observacoes, setObservacoes] = useState("");
   const [ativo, setAtivo] = useState(true);
 
-  const fetch = async () => {
+  // Password fields (new client only)
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [showSenha, setShowSenha] = useState(false);
+  const [showConfirmar, setShowConfirmar] = useState(false);
+  const [senhaError, setSenhaError] = useState("");
+
+  const fetchClientes = async () => {
     const { data } = await supabase.from("clientes").select("*").order("nome");
     setClientes((data as unknown as Cliente[]) || []);
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetchClientes(); }, []);
 
   const resetForm = () => {
     setNome(""); setTipo("clinica"); setEndereco(""); setTelefone("");
     setEmail(""); setResponsavel(""); setTipoCobranca("peca");
     setPrecoPeca(""); setPrecoKg(""); setDiasColeta([]); setObservacoes(""); setAtivo(true);
-    setEditing(null);
+    setSenha(""); setConfirmarSenha(""); setSenhaError(""); setShowSenha(false); setShowConfirmar(false);
+    setEditing(null); setNameError("");
   };
 
   const openEdit = (c: Cliente) => {
@@ -70,12 +94,31 @@ const Clientes = () => {
     setDiasColeta((c as any).dias_coleta || []);
     setObservacoes((c as any).observacoes || "");
     setAtivo(c.ativo);
+    setSenha(""); setConfirmarSenha(""); setSenhaError("");
+    setNameError("");
     setShowForm(true);
   };
 
   const handleSave = async () => {
     if (!nome.trim()) return;
+
+    // Check unique name
+    const duplicate = clientes.find(c => c.nome.toLowerCase() === nome.trim().toLowerCase() && c.id !== editing?.id);
+    if (duplicate) {
+      setNameError("Já existe um cliente com este nome.");
+      return;
+    }
+    setNameError("");
+
+    // For new clients, password is required
+    if (!editing) {
+      if (!senha) { setSenhaError("Informe uma senha para o cliente"); return; }
+      if (senha !== confirmarSenha) { setSenhaError("As senhas não coincidem"); return; }
+      if (senha.length < 6) { setSenhaError("Senha deve ter pelo menos 6 caracteres"); return; }
+    }
+    setSenhaError("");
     setSaving(true);
+
     const payload: any = {
       nome: nome.trim(), tipo, endereco: endereco || null, telefone: telefone || null,
       email: email || null, responsavel: responsavel || null,
@@ -84,21 +127,39 @@ const Clientes = () => {
       preco_kg: precoKg ? Number(precoKg) : 0,
       dias_coleta: diasColeta, observacoes: observacoes || null, ativo,
     };
+
     if (editing) {
       await supabase.from("clientes").update(payload).eq("id", editing.id);
     } else {
+      // Create auth user for the client
+      const syntheticEmail = `${nome.trim().toLowerCase().replace(/[^a-z0-9]/g, "")}.cliente@amana.local`;
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: syntheticEmail,
+        password: senha,
+        options: { data: { name: nome.trim() } },
+      });
+
+      if (authError || !authData.user) {
+        setSaving(false);
+        setSenhaError(authError?.message || "Erro ao criar conta do cliente");
+        return;
+      }
+
+      payload.auth_user_id = authData.user.id;
       await supabase.from("clientes").insert(payload);
     }
+
     setSaving(false);
     setShowForm(false);
     resetForm();
-    fetch();
+    fetchClientes();
   };
 
   const toggleDia = (d: string) => {
     setDiasColeta((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
   };
 
+  const strength = getPasswordStrength(senha);
   const filtered = clientes.filter((c) => c.nome.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -122,7 +183,8 @@ const Clientes = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="field-label">Nome *</label>
-              <input className="field-input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do cliente" />
+              <input className="field-input" value={nome} onChange={(e) => { setNome(e.target.value); setNameError(""); }} placeholder="Nome do cliente" />
+              {nameError && <p className="text-[11px] mt-1 text-destructive font-semibold">{nameError}</p>}
             </div>
             <div>
               <label className="field-label">Tipo *</label>
@@ -135,6 +197,54 @@ const Clientes = () => {
                 ))}
               </div>
             </div>
+
+            {/* Password fields - only for new clients */}
+            {!editing && (
+              <>
+                <div>
+                  <label className="field-label">Senha inicial *</label>
+                  <div className="relative">
+                    <input
+                      className="field-input pr-10"
+                      type={showSenha ? "text" : "password"}
+                      value={senha}
+                      onChange={(e) => { setSenha(e.target.value); setSenhaError(""); }}
+                      placeholder="Senha do cliente"
+                    />
+                    <button type="button" onClick={() => setShowSenha(!showSenha)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {senha && (
+                    <div className="mt-2 space-y-1">
+                      <div className="progress-track">
+                        <div className="progress-fill" style={{ width: `${strength.percent}%`, background: strength.color }} />
+                      </div>
+                      <p className="text-[11px] font-semibold" style={{ color: strength.color }}>{strength.label}</p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="field-label">Confirmar senha *</label>
+                  <div className="relative">
+                    <input
+                      className="field-input pr-10"
+                      type={showConfirmar ? "text" : "password"}
+                      value={confirmarSenha}
+                      onChange={(e) => { setConfirmarSenha(e.target.value); setSenhaError(""); }}
+                      placeholder="Confirme a senha"
+                    />
+                    <button type="button" onClick={() => setShowConfirmar(!showConfirmar)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showConfirmar ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {confirmarSenha && senha !== confirmarSenha && (
+                    <p className="text-[11px] mt-1 text-destructive font-semibold">As senhas não coincidem</p>
+                  )}
+                </div>
+              </>
+            )}
+
             <div>
               <label className="field-label">Endereço</label>
               <input className="field-input" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
@@ -152,6 +262,8 @@ const Clientes = () => {
               <input className="field-input" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
             </div>
           </div>
+
+          {senhaError && <p className="text-xs text-destructive font-semibold">{senhaError}</p>}
 
           {/* Cobrança */}
           <div>
