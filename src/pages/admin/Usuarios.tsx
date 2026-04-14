@@ -382,7 +382,17 @@ const Usuarios = () => {
                 <div className="text-xs text-muted-foreground">
                   {u.email} {u.clientes?.nome ? `• ${u.clientes.nome}` : ""}
                   {u.quantidade_trocas_senha >= 2 && (
-                    <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(224,80,80,0.12)", color: "#e05050" }}>Limite de trocas</span>
+                    <>
+                      <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(224,80,80,0.12)", color: "#e05050" }}>Limite de trocas</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleZerarContador(u.id); }}
+                        className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded hover:opacity-80 transition-opacity"
+                        style={{ background: "rgba(91,141,246,0.12)", color: "#5b8df6" }}
+                        title="Zerar contador de trocas"
+                      >
+                        <RotateCcw className="w-3 h-3 inline mr-0.5" />Zerar
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
