@@ -139,6 +139,27 @@ const AdminDashboard = () => {
         </div>
       )}
 
+      {/* Pending client requests */}
+      {pendingClientRequests > 0 && (
+        <div
+          className="rounded-xl p-4 mb-6 flex items-center justify-between border"
+          style={{ background: "rgba(45,191,160,0.08)", borderColor: "rgba(45,191,160,0.2)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "rgba(45,191,160,0.15)" }}>
+              <ClipboardList className="w-4 h-4" style={{ color: "#2dbfa0" }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {pendingClientRequests} solicitação(ões) de novo cliente pendente(s)
+              </p>
+              <p className="text-xs text-muted-foreground">Motoristas solicitaram cadastro de novos clientes</p>
+            </div>
+          </div>
+          <a href="/admin/clientes" className="btn-primary text-xs px-3 py-1.5">Ver solicitações</a>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
         {statusTabs.map((t) => (
