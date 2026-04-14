@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Plus, Search, X, Eye, EyeOff, LogIn, Check, Key } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff, LogIn, Check, Key, Bell, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Usuario {
