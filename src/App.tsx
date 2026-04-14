@@ -8,6 +8,7 @@ import ImpersonationBar from "@/components/ImpersonationBar";
 
 import Login from "./pages/Login";
 import PrimeiroAcesso from "./pages/PrimeiroAcesso";
+import AlterarSenha from "./pages/AlterarSenha";
 import AdminDashboard from "./pages/admin/Dashboard";
 import TiposRoupa from "./pages/admin/TiposRoupa";
 import AdminPedidos from "./pages/admin/Pedidos";
@@ -52,6 +53,7 @@ const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Login />} />
     <Route path="/primeiro-acesso" element={<FirstAccessRoute><PrimeiroAcesso /></FirstAccessRoute>} />
+    <Route path="/alterar-senha" element={<ProtectedRoute><AlterarSenha /></ProtectedRoute>} />
 
     {/* Admin */}
     <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />

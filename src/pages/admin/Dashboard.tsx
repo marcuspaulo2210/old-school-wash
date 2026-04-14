@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge, { getStatusConfig } from "@/components/StatusBadge";
-import { ClipboardList, TruckIcon, Package, AlertTriangle, MessageSquare } from "lucide-react";
+import { ClipboardList, TruckIcon, Package, AlertTriangle, MessageSquare, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 
 interface Order {
@@ -28,12 +28,22 @@ const AdminDashboard = () => {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterCliente, setFilterCliente] = useState("");
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
+  const [pendingPasswordRequests, setPendingPasswordRequests] = useState(0);
 
   useEffect(() => {
     fetchOrders();
     supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome")
       .then(({ data }) => setClientes((data as any) || []));
+    fetchPendingRequests();
   }, []);
+
+  const fetchPendingRequests = async () => {
+    const { count } = await supabase
+      .from("solicitacoes_troca_senha")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pendente");
+    setPendingPasswordRequests(count || 0);
+  };
 
   const fetchOrders = async () => {
     const { data } = await supabase
@@ -97,6 +107,27 @@ const AdminDashboard = () => {
           </div>
         ))}
       </div>
+
+      {/* Pending password requests */}
+      {pendingPasswordRequests > 0 && (
+        <div
+          className="rounded-xl p-4 mb-6 flex items-center justify-between border"
+          style={{ background: "rgba(240,160,32,0.08)", borderColor: "rgba(240,160,32,0.2)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "rgba(240,160,32,0.15)" }}>
+              <KeyRound className="w-4 h-4" style={{ color: "#f0a020" }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {pendingPasswordRequests} solicitação(ões) de troca de senha pendente(s)
+              </p>
+              <p className="text-xs text-muted-foreground">Usuários atingiram o limite de trocas e precisam de autorização</p>
+            </div>
+          </div>
+          <a href="/admin/usuarios" className="btn-primary text-xs px-3 py-1.5">Ver solicitações</a>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Plus, Search, X, Eye, EyeOff, LogIn, Check, Key } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff, LogIn, Check, Key, Bell, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Usuario {
@@ -75,15 +75,20 @@ const Usuarios = () => {
   const [resetError, setResetError] = useState("");
   const [resetting, setResetting] = useState(false);
 
+  // Password change requests
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
+
   const navigate = useNavigate();
 
   const fetchAll = async () => {
-    const [{ data: users }, { data: cls }] = await Promise.all([
+    const [{ data: users }, { data: cls }, { data: solic }] = await Promise.all([
       supabase.from("usuarios").select("id, nome, email, perfil, ativo, cliente_id, permite_cobranca_peca, permite_cobranca_peso, quantidade_trocas_senha, clientes(nome)").order("nome"),
       supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("solicitacoes_troca_senha").select("*").eq("status", "pendente").order("criado_em", { ascending: false }),
     ]);
     setUsuarios((users as unknown as Usuario[]) || []);
     setClientes((cls as unknown as Cliente[]) || []);
+    setSolicitacoes((solic as any) || []);
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -188,6 +193,23 @@ const Usuarios = () => {
     setResetTarget(null);
     setResetSenha("");
     setResetConfirmar("");
+    fetchAll();
+  };
+
+  const handleApproveSolicitacao = async (solicId: string, userId: string) => {
+    // Authorize +1 change: reset counter to 1 (allows one more change)
+    await supabase.from("usuarios").update({ quantidade_trocas_senha: 1 } as any).eq("id", userId);
+    await supabase.from("solicitacoes_troca_senha").update({ status: "aprovada", resolvido_em: new Date().toISOString(), resolvido_por: (await supabase.auth.getUser()).data.user?.id } as any).eq("id", solicId);
+    fetchAll();
+  };
+
+  const handleRejectSolicitacao = async (solicId: string) => {
+    await supabase.from("solicitacoes_troca_senha").update({ status: "rejeitada", resolvido_em: new Date().toISOString(), resolvido_por: (await supabase.auth.getUser()).data.user?.id } as any).eq("id", solicId);
+    fetchAll();
+  };
+
+  const handleZerarContador = async (userId: string) => {
+    await supabase.from("usuarios").update({ quantidade_trocas_senha: 0 } as any).eq("id", userId);
     fetchAll();
   };
 
@@ -302,6 +324,55 @@ const Usuarios = () => {
         <input className="field-input pl-9" placeholder="Buscar usuário..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
+      {/* Pending password change requests */}
+      {solicitacoes.length > 0 && (
+        <div className="app-card-elevated mb-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4" style={{ color: "#f0a020" }} />
+            <h3 className="text-sm font-bold text-foreground">Solicitações de troca de senha ({solicitacoes.length})</h3>
+          </div>
+          {solicitacoes.map((s: any) => {
+            const user = usuarios.find((u) => u.id === s.user_id);
+            return (
+              <div key={s.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{user?.nome || "Usuário"}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email} • Solicitado em {new Date(s.criado_em).toLocaleDateString("pt-BR")}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="btn-primary text-xs px-3 py-1.5"
+                    onClick={() => handleApproveSolicitacao(s.id, s.user_id)}
+                    title="Autorizar +1 troca"
+                  >
+                    <Check className="w-3.5 h-3.5 mr-1" /> Autorizar
+                  </button>
+                  <button
+                    className="btn-ghost text-xs px-3 py-1.5"
+                    onClick={() => {
+                      setResetTarget(user || null);
+                      setResetSenha("");
+                      setResetConfirmar("");
+                      setResetError("");
+                    }}
+                    title="Redefinir senha manualmente"
+                  >
+                    <Key className="w-3.5 h-3.5 mr-1" /> Redefinir
+                  </button>
+                  <button
+                    className="text-xs px-2 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    onClick={() => handleRejectSolicitacao(s.id)}
+                    title="Rejeitar solicitação"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="space-y-2">
         {filtered.map((u) => (
           <div key={u.id} className={`app-card ${!u.ativo ? "opacity-40" : ""}`}>
@@ -311,7 +382,17 @@ const Usuarios = () => {
                 <div className="text-xs text-muted-foreground">
                   {u.email} {u.clientes?.nome ? `• ${u.clientes.nome}` : ""}
                   {u.quantidade_trocas_senha >= 2 && (
-                    <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(224,80,80,0.12)", color: "#e05050" }}>Limite de trocas</span>
+                    <>
+                      <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(224,80,80,0.12)", color: "#e05050" }}>Limite de trocas</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleZerarContador(u.id); }}
+                        className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded hover:opacity-80 transition-opacity"
+                        style={{ background: "rgba(91,141,246,0.12)", color: "#5b8df6" }}
+                        title="Zerar contador de trocas"
+                      >
+                        <RotateCcw className="w-3 h-3 inline mr-0.5" />Zerar
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
