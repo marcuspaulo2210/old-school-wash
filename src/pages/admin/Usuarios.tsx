@@ -75,6 +75,9 @@ const Usuarios = () => {
   const [resetError, setResetError] = useState("");
   const [resetting, setResetting] = useState(false);
 
+  // Password change requests
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
+
   const navigate = useNavigate();
 
   const fetchAll = async () => {
