@@ -5,7 +5,9 @@ import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AppLayout from "@/components/AppLayout";
 import OrderCard from "@/components/OrderCard";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { MapPin, MessageSquare } from "lucide-react";
+import StatusBadge from "@/components/StatusBadge";
+import { MapPin, MessageSquare, Plus, X, Package, Truck } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface ItemPedido {
   id: string;
@@ -22,30 +24,91 @@ interface Pedido {
   tipo_cobranca: string;
   quem_contou: string;
   criado_em: string;
+  peso_kg: number | null;
+  peso_informado_cliente: number | null;
   clientes: { nome: string; endereco: string | null; tipo: string } | null;
+  item_count?: number;
+}
+
+interface SolicitacaoCliente {
+  id: string;
+  nome: string;
+  status: string;
+  criado_em: string;
 }
 
 const MotoristaDashboard = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Pedido[]>([]);
+  const [deliveryOrders, setDeliveryOrders] = useState<Pedido[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Pedido | null>(null);
   const [orderItems, setOrderItems] = useState<ItemPedido[]>([]);
   const [collectionNotes, setCollectionNotes] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const [confirmation, setConfirmation] = useState<{ pedido: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ pedido: string; action: string } | null>(null);
+
+  // Solicitar novo cliente
+  const [showSolicForm, setShowSolicForm] = useState(false);
+  const [solicNome, setSolicNome] = useState("");
+  const [solicEmail, setSolicEmail] = useState("");
+  const [solicTelefone, setSolicTelefone] = useState("");
+  const [solicTipo, setSolicTipo] = useState("clinica");
+  const [solicObs, setSolicObs] = useState("");
+  const [solicSaving, setSolicSaving] = useState(false);
+  const [solicitacoes, setSolicitacoes] = useState<SolicitacaoCliente[]>([]);
 
   const fetchOrders = async () => {
     if (!user) return;
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, clientes(nome, endereco, tipo)")
+      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, peso_kg, peso_informado_cliente, clientes(nome, endereco, tipo)")
       .eq("motorista_id", user.id)
       .in("status", ["aguardando_coleta", "coletado"])
       .order("criado_em", { ascending: true });
-    setOrders((data as unknown as Pedido[]) || []);
+    
+    const pedidos = (data as unknown as Pedido[]) || [];
+    
+    // Fetch item counts for each order
+    for (const p of pedidos) {
+      const { count } = await supabase.from("itens_pedido").select("*", { count: "exact", head: true }).eq("pedido_id", p.id);
+      p.item_count = count || 0;
+    }
+    setOrders(pedidos);
   };
 
-  useEffect(() => { fetchOrders(); }, [user]);
+  const fetchDeliveryOrders = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("pedidos")
+      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, peso_kg, peso_informado_cliente, clientes(nome, endereco, tipo)")
+      .eq("motorista_id", user.id)
+      .in("status", ["pronto_para_entrega", "saiu_para_entrega"])
+      .order("criado_em", { ascending: true });
+
+    const pedidos = (data as unknown as Pedido[]) || [];
+    for (const p of pedidos) {
+      const { count } = await supabase.from("itens_pedido").select("*", { count: "exact", head: true }).eq("pedido_id", p.id);
+      p.item_count = count || 0;
+    }
+    setDeliveryOrders(pedidos);
+  };
+
+  const fetchSolicitacoes = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("solicitacoes_clientes")
+      .select("id, nome, status, criado_em")
+      .eq("motorista_id", user.id)
+      .order("criado_em", { ascending: false })
+      .limit(20);
+    setSolicitacoes((data as any) || []);
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    fetchDeliveryOrders();
+    fetchSolicitacoes();
+  }, [user]);
 
   const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
@@ -67,34 +130,193 @@ const MotoristaDashboard = () => {
     setSelectedOrder(null);
     setCollectionNotes("");
     setConfirming(false);
-    setConfirmation({ pedido });
+    setConfirmation({ pedido, action: "Coletado" });
     fetchOrders();
+  };
+
+  const confirmSaiuEntrega = async (order: Pedido) => {
+    if (!user) return;
+    setConfirming(true);
+    await supabase.from("pedidos").update({ status: "saiu_para_entrega" as any, saiu_em: new Date().toISOString() } as any).eq("id", order.id);
+    await registrarMudancaStatus(order.id, "pronto_para_entrega", "saiu_para_entrega", user.id, "Saiu para entrega");
+    const pedido = order.numero_pedido;
+    setSelectedOrder(null);
+    setConfirming(false);
+    setConfirmation({ pedido, action: "Saiu para Entrega" });
+    fetchDeliveryOrders();
+  };
+
+  const confirmEntrega = async (order: Pedido) => {
+    if (!user) return;
+    setConfirming(true);
+    await supabase.from("pedidos").update({ status: "entregue" as any, entregue_em: new Date().toISOString() } as any).eq("id", order.id);
+    await registrarMudancaStatus(order.id, "saiu_para_entrega", "entregue", user.id, "Entrega confirmada pelo motorista");
+    const pedido = order.numero_pedido;
+    setSelectedOrder(null);
+    setConfirming(false);
+    setConfirmation({ pedido, action: "Entregue" });
+    fetchDeliveryOrders();
+  };
+
+  const handleSolicitarCliente = async () => {
+    if (!user || !solicNome.trim()) return;
+    setSolicSaving(true);
+    await supabase.from("solicitacoes_clientes").insert({
+      motorista_id: user.id,
+      nome: solicNome.trim(),
+      email: solicEmail.trim() || null,
+      telefone: solicTelefone.trim() || null,
+      tipo: solicTipo,
+      observacoes: solicObs.trim() || null,
+    } as any);
+    setSolicSaving(false);
+    setShowSolicForm(false);
+    setSolicNome(""); setSolicEmail(""); setSolicTelefone(""); setSolicTipo("clinica"); setSolicObs("");
+    fetchSolicitacoes();
+  };
+
+  const getResumo = (order: Pedido) => {
+    if (order.tipo_cobranca === "peso") {
+      const peso = order.peso_informado_cliente || order.peso_kg;
+      return peso ? `${peso} kg` : "Peso não informado";
+    }
+    return order.item_count ? `${order.item_count} peça(s)` : "Sem itens";
+  };
+
+  const tipoBadge = (tipo: string) => {
+    if (tipo === "hospital") return { label: "Hospital", bg: "rgba(155,114,244,0.12)", color: "#9b72f4" };
+    return { label: "Clínica", bg: "rgba(45,191,160,0.12)", color: "#2dbfa0" };
+  };
+
+  const renderOrderCard = (order: Pedido) => {
+    const badge = tipoBadge(order.clientes?.tipo || "clinica");
+    return (
+      <button
+        key={order.id}
+        className="w-full text-left rounded-xl border border-[rgba(255,255,255,0.07)] bg-card p-4 transition-all hover:bg-[#1a1e2a] hover:border-[rgba(255,255,255,0.13)] cursor-pointer"
+        onClick={() => openOrder(order)}
+      >
+        <div className="flex items-start justify-between mb-1">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded" style={{ background: badge.bg, color: badge.color }}>
+                {badge.label}
+              </span>
+              <span className="font-mono text-xs font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</span>
+            </div>
+            <p className="text-sm font-bold text-foreground truncate">{order.clientes?.nome || "—"}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+              <MapPin className="w-3 h-3 shrink-0" />
+              {order.clientes?.endereco || "Endereço não informado"}
+            </p>
+          </div>
+          <StatusBadge status={order.status} />
+        </div>
+        <div className="flex items-center justify-between mt-3">
+          <span className="text-xs text-muted-foreground">
+            {getResumo(order)} • {order.quem_contou === "cliente" ? "contado pelo cliente" : "contagem na lavanderia"}
+          </span>
+          <div className="flex items-center gap-2">
+            {order.obs_cliente && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
+                <MessageSquare className="w-3 h-3" /> obs
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+    );
   };
 
   return (
     <AppLayout title="Amaná" subtitle="Painel do Motorista">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        Rota de coletas ({orders.filter((o) => o.status === "aguardando_coleta").length} pendentes)
-      </h3>
+      {/* Solicitar novo cliente button */}
+      <div className="flex items-center justify-between mb-4">
+        <div />
+        <button className="btn-primary text-xs px-3 py-2" onClick={() => setShowSolicForm(true)}>
+          <Plus className="w-4 h-4" /> Solicitar novo cliente
+        </button>
+      </div>
 
-      {orders.length === 0 ? (
-        <div className="empty-state"><div className="empty-state-icon">🚚</div><p className="empty-state-text">Nenhuma coleta atribuída</p></div>
-      ) : (
-        <div className="space-y-2">
-          {orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              numeroPedido={order.numero_pedido}
-              clienteNome={order.clientes?.nome || "—"}
-              resumo={order.clientes?.endereco || "Endereço não informado"}
-              status={order.status}
-              criadoEm={order.criado_em}
-              obsCliente={order.obs_cliente}
-              onClick={() => openOrder(order)}
-            />
+      {/* Solicitar form */}
+      {showSolicForm && (
+        <div className="app-card-elevated mb-4 space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold text-foreground">Solicitar novo cliente</h3>
+            <button onClick={() => setShowSolicForm(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="field-label">Nome *</label>
+              <input className="field-input" value={solicNome} onChange={(e) => setSolicNome(e.target.value)} placeholder="Ex: Clínica Bem Estar" />
+            </div>
+            <div>
+              <label className="field-label">Tipo</label>
+              <select className="field-select" value={solicTipo} onChange={(e) => setSolicTipo(e.target.value)}>
+                <option value="clinica">Clínica</option>
+                <option value="hospital">Hospital</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Email (opcional)</label>
+              <input className="field-input" type="email" value={solicEmail} onChange={(e) => setSolicEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Telefone (opcional)</label>
+              <input className="field-input" value={solicTelefone} onChange={(e) => setSolicTelefone(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="field-label">Observações</label>
+            <textarea className="field-input min-h-[50px] resize-none" value={solicObs} onChange={(e) => setSolicObs(e.target.value)} />
+          </div>
+          <button className="btn-primary w-full" onClick={handleSolicitarCliente} disabled={solicSaving || !solicNome.trim()}>
+            {solicSaving ? "Enviando..." : "Enviar solicitação"}
+          </button>
+        </div>
+      )}
+
+      {/* Pending solicitations */}
+      {solicitacoes.filter(s => s.status === "pendente").length > 0 && (
+        <div className="mb-4 space-y-1">
+          {solicitacoes.filter(s => s.status === "pendente").map(s => (
+            <div key={s.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: "rgba(240,160,32,0.08)" }}>
+              <span className="text-xs text-foreground font-medium">{s.nome}</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: "rgba(240,160,32,0.15)", color: "#f0a020" }}>Aguardando aprovação</span>
+            </div>
           ))}
         </div>
       )}
+
+      {/* Tabs: Coletas / Entregas */}
+      <Tabs defaultValue="coletas" className="w-full">
+        <TabsList className="w-full mb-3">
+          <TabsTrigger value="coletas" className="flex-1 gap-1">
+            <Package className="w-4 h-4" />
+            Coletas ({orders.filter((o) => o.status === "aguardando_coleta").length})
+          </TabsTrigger>
+          <TabsTrigger value="entregas" className="flex-1 gap-1">
+            <Truck className="w-4 h-4" />
+            Entregas ({deliveryOrders.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="coletas">
+          {orders.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">🚚</div><p className="empty-state-text">Nenhuma coleta atribuída</p></div>
+          ) : (
+            <div className="space-y-2">{orders.map(renderOrderCard)}</div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="entregas">
+          {deliveryOrders.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">📦</div><p className="empty-state-text">Nenhuma entrega pendente</p></div>
+          ) : (
+            <div className="space-y-2">{deliveryOrders.map(renderOrderCard)}</div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Detail modal */}
       {selectedOrder && (
@@ -102,14 +324,21 @@ const MotoristaDashboard = () => {
           <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4 animate-fade-in">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="text-base font-bold text-foreground">
-                  Pedido <span className="font-mono" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
-                </h3>
-                <p className="text-sm text-muted-foreground">{selectedOrder.clientes?.nome} ({selectedOrder.clientes?.tipo === "hospital" ? "Hospital" : "Clínica"})</p>
+                <div className="flex items-center gap-2 mb-1">
+                  {(() => {
+                    const b = tipoBadge(selectedOrder.clientes?.tipo || "clinica");
+                    return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded" style={{ background: b.bg, color: b.color }}>{b.label}</span>;
+                  })()}
+                  <span className="font-mono text-sm font-bold" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
+                </div>
+                <h3 className="text-base font-bold text-foreground">{selectedOrder.clientes?.nome}</h3>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> {selectedOrder.clientes?.endereco || "—"}</p>
               </div>
               <button className="text-muted-foreground hover:text-foreground text-lg" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
+
+            {/* Info line */}
+            <div className="text-xs text-muted-foreground">{getResumo(selectedOrder)}</div>
 
             {selectedOrder.quem_contou === "lavanderia" ? (
               <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
@@ -143,6 +372,7 @@ const MotoristaDashboard = () => {
               </div>
             )}
 
+            {/* Coleta actions */}
             {selectedOrder.status === "aguardando_coleta" && (
               <>
                 <div>
@@ -155,14 +385,35 @@ const MotoristaDashboard = () => {
               </>
             )}
 
+            {/* Entrega actions */}
+            {selectedOrder.status === "pronto_para_entrega" && (
+              <button
+                className="btn-primary w-full btn-lg"
+                onClick={() => confirmSaiuEntrega(selectedOrder)}
+                disabled={confirming}
+              >
+                {confirming ? "Confirmando..." : "🚚 Confirmar: Saiu para entrega"}
+              </button>
+            )}
+
+            {selectedOrder.status === "saiu_para_entrega" && (
+              <button
+                className="btn-success w-full btn-lg"
+                onClick={() => confirmEntrega(selectedOrder)}
+                disabled={confirming}
+              >
+                {confirming ? "Confirmando..." : "✓ Confirmar entrega realizada"}
+              </button>
+            )}
+
             <button className="btn-ghost w-full" onClick={() => setSelectedOrder(null)}>Fechar</button>
           </div>
         </div>
       )}
 
       {confirmation && (
-        <ConfirmationModal numeroPedido={confirmation.pedido} variant="success" title="Coleta Confirmada" onClose={() => setConfirmation(null)}>
-          <div className="flex justify-between"><span>Status:</span><span className="text-foreground">Coletado</span></div>
+        <ConfirmationModal numeroPedido={confirmation.pedido} variant="success" title={confirmation.action} onClose={() => setConfirmation(null)}>
+          <div className="flex justify-between"><span>Status:</span><span className="text-foreground">{confirmation.action}</span></div>
         </ConfirmationModal>
       )}
     </AppLayout>

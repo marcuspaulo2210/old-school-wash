@@ -29,6 +29,7 @@ const AdminDashboard = () => {
   const [filterCliente, setFilterCliente] = useState("");
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [pendingPasswordRequests, setPendingPasswordRequests] = useState(0);
+  const [pendingClientRequests, setPendingClientRequests] = useState(0);
 
   useEffect(() => {
     fetchOrders();
