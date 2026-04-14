@@ -169,6 +169,39 @@ const Clientes = () => {
     setDiasColeta((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
   };
 
+  const handleApproveSolicitacao = async (solic: any) => {
+    // Pre-fill the form with the solicitation data
+    resetForm();
+    setNome(solic.nome);
+    setTipo(solic.tipo === "hospital" ? "hospital" : "clinica");
+    setEmail(solic.email || "");
+    setTelefone(solic.telefone || "");
+    setObservacoes(solic.observacoes || "");
+    setShowForm(true);
+
+    // Mark as approved
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    await supabase.from("solicitacoes_clientes").update({
+      status: "aprovada",
+      resolvido_em: new Date().toISOString(),
+      resolvido_por: currentUser?.id,
+    } as any).eq("id", solic.id);
+    fetchSolicitacoes();
+  };
+
+  const handleRejectSolicitacao = async (solicId: string) => {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    await supabase.from("solicitacoes_clientes").update({
+      status: "recusada",
+      motivo_recusa: motivoRecusa || null,
+      resolvido_em: new Date().toISOString(),
+      resolvido_por: currentUser?.id,
+    } as any).eq("id", solicId);
+    setRecusandoId(null);
+    setMotivoRecusa("");
+    fetchSolicitacoes();
+  };
+
   const strength = getPasswordStrength(senha);
   const filtered = clientes.filter((c) => c.nome.toLowerCase().includes(search.toLowerCase()));
 
