@@ -53,6 +53,7 @@ const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Login />} />
     <Route path="/primeiro-acesso" element={<FirstAccessRoute><PrimeiroAcesso /></FirstAccessRoute>} />
+    <Route path="/alterar-senha" element={<ProtectedRoute><AlterarSenha /></ProtectedRoute>} />
 
     {/* Admin */}
     <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
