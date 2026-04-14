@@ -51,7 +51,7 @@ const PrimeiroAcesso = () => {
       return;
     }
 
-    // Mark primeiro_acesso = false in database
+    // Mark primeiro_acesso = false in database (this change does NOT count towards the 2-change limit)
     if (user) {
       if (loginType === "cliente" && profile?.cliente_id) {
         await supabase
