@@ -5,7 +5,10 @@ import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AppLayout from "@/components/AppLayout";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { Plus, X, Scale } from "lucide-react";
+import OrderProgress, { ProgressStep } from "@/components/OrderProgress";
+import OrderTimeline from "@/components/OrderTimeline";
+import NotificationBell from "@/components/NotificationBell";
+import { Plus, X, Scale, ChevronDown, ChevronUp } from "lucide-react";
 
 interface TipoRoupa { id: string; nome: string; }
 interface ItemPedido { tipo_roupa_id: string; descricao_livre: string; quantidade_original: number; }
@@ -16,6 +19,11 @@ interface Pedido {
   criado_em: string;
   tipo_cobranca: string;
   rascunho: boolean;
+  coletado_em: string | null;
+  embalado_em: string | null;
+  pronto_em: string | null;
+  saiu_em: string | null;
+  entregue_em: string | null;
   clientes: { tipo: string } | null;
 }
 
@@ -24,8 +32,32 @@ interface UserPermissions {
   permite_cobranca_peso: boolean;
 }
 
-const statusSteps = ["aguardando_coleta", "coletado", "em_producao", "embalado", "entregue"];
-const stepLabels = ["Aguardar", "Coletado", "Produção", "Embalado", "Entregue"];
+interface HospitalQty { tipo_roupa_id: string; quantidade: number; }
+
+const buildSteps = (p: Pedido): ProgressStep[] => {
+  const order = ["aguardando_coleta", "coletado", "em_producao", "pronto_para_entrega", "saiu_para_entrega", "entregue"];
+  const idx = order.indexOf(p.status);
+  return [
+    { key: "aguardando", label: "Aguardando coleta", color: "#9b72f4", timestamp: p.criado_em },
+    { key: "coletado", label: "Coletado", color: "#f0a020", timestamp: p.coletado_em },
+    { key: "producao", label: "Na produção", color: "#5b8df6", timestamp: idx >= 2 ? p.coletado_em : null },
+    { key: "finalizado", label: "Finalizado", color: "#2dbfa0", timestamp: p.pronto_em || p.embalado_em },
+    { key: "entrega", label: "Saiu p/ entrega", color: "#34c97a", timestamp: p.saiu_em || p.entregue_em },
+  ];
+};
+
+const currentStepIndex = (status: string): number => {
+  switch (status) {
+    case "aguardando_coleta": return 0;
+    case "coletado": return 1;
+    case "em_producao": return 2;
+    case "embalado":
+    case "pronto_para_entrega": return 3;
+    case "saiu_para_entrega": return 4;
+    case "entregue": return 4;
+    default: return -1;
+  }
+};
 
 const ClienteDashboard = () => {
   const { user, profile } = useAuth();
@@ -38,6 +70,7 @@ const ClienteDashboard = () => {
   const [clienteInfo, setClienteInfo] = useState<{ tipo: string } | null>(null);
   const [confirmation, setConfirmation] = useState<{ pedido: string } | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"peca" | "peso">("peca");
@@ -47,32 +80,31 @@ const ClienteDashboard = () => {
   const [weightItems, setWeightItems] = useState<{ tipo_roupa_id: string; quantidade: number }[]>([]);
   const [pesoError, setPesoError] = useState("");
 
+  // Hospital "por peças" — qtds por tipo + peso estimado opcional
+  const [hospitalQtys, setHospitalQtys] = useState<HospitalQty[]>([]);
+  const [pesoEstimado, setPesoEstimado] = useState("");
+
   useEffect(() => {
     supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome")
       .then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
 
     if (user && profile?.cliente_id) {
-      supabase.from("pedidos")
-        .select("id, numero_pedido, status, criado_em, tipo_cobranca, rascunho, clientes(tipo)")
-        .eq("cliente_id", profile.cliente_id)
-        .order("criado_em", { ascending: false })
-        .then(({ data }) => setOrders((data as unknown as Pedido[]) || []));
-
       supabase.from("clientes").select("tipo").eq("id", profile.cliente_id).single()
         .then(({ data }) => { if (data) setClienteInfo(data as any); });
 
-      // Fetch user permissions
       supabase.from("usuarios").select("permite_cobranca_peca, permite_cobranca_peso").eq("id", user.id).single()
         .then(({ data }) => {
           if (data) {
             const p = data as unknown as UserPermissions;
             setPermissions(p);
-            // Set default tab based on permissions
             if (p.permite_cobranca_peca) setActiveTab("peca");
             else if (p.permite_cobranca_peso) setActiveTab("peso");
           }
         });
+
+      refreshOrders();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile]);
 
   const isHospital = clienteInfo?.tipo === "hospital";
@@ -86,11 +118,12 @@ const ClienteDashboard = () => {
     setItems(items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
   };
   const totalPieces = items.reduce((sum, i) => sum + i.quantidade_original, 0);
+  const totalHospitalPieces = hospitalQtys.reduce((sum, h) => sum + h.quantidade, 0);
 
   const refreshOrders = async () => {
     if (!profile?.cliente_id) return;
     const { data } = await supabase.from("pedidos")
-      .select("id, numero_pedido, status, criado_em, tipo_cobranca, rascunho, clientes(tipo)")
+      .select("id, numero_pedido, status, criado_em, tipo_cobranca, rascunho, coletado_em, embalado_em, pronto_em, saiu_em, entregue_em, clientes(tipo)")
       .eq("cliente_id", profile.cliente_id)
       .order("criado_em", { ascending: false });
     setOrders((data as unknown as Pedido[]) || []);
@@ -109,7 +142,8 @@ const ClienteDashboard = () => {
         obs_cliente: notes || null,
         quem_contou: quemContou,
         rascunho: isDraft,
-        status: isDraft ? "aguardando_coleta" : "aguardando_coleta",
+        status: "aguardando_coleta",
+        peso_informado_cliente: isHospital && pesoEstimado ? parseFloat(pesoEstimado) : null,
       } as any)
       .select("id, numero_pedido")
       .single();
@@ -119,12 +153,36 @@ const ClienteDashboard = () => {
       if (!isDraft) {
         await registrarMudancaStatus(o.id, null, "aguardando_coleta", user.id, "Pedido criado pelo cliente");
       }
+
+      // Não-hospital: itens livres digitados
       if (!isHospital && items.length > 0) {
-        const orderItems = items.map((i) => ({ pedido_id: o.id, tipo_roupa_id: i.tipo_roupa_id || null, descricao_livre: i.descricao_livre || null, quantidade_original: i.quantidade_original, origem: "cliente" }));
+        const orderItems = items.map((i) => ({
+          pedido_id: o.id,
+          tipo_roupa_id: i.tipo_roupa_id || null,
+          descricao_livre: i.descricao_livre || null,
+          quantidade_original: i.quantidade_original,
+          origem: "cliente",
+        }));
         await supabase.from("itens_pedido").insert(orderItems as any);
       }
+
+      // Hospital: quantidades por tipo (do admin)
+      if (isHospital && hospitalQtys.some((h) => h.quantidade > 0)) {
+        const orderItems = hospitalQtys
+          .filter((h) => h.quantidade > 0)
+          .map((h) => ({
+            pedido_id: o.id,
+            tipo_roupa_id: h.tipo_roupa_id,
+            quantidade_original: h.quantidade,
+            origem: "cliente",
+          }));
+        await supabase.from("itens_pedido").insert(orderItems as any);
+      }
+
       setItems([]);
       setNotes("");
+      setHospitalQtys([]);
+      setPesoEstimado("");
       setShowForm(false);
       if (!isDraft) setConfirmation({ pedido: o.numero_pedido });
       await refreshOrders();
@@ -148,7 +206,7 @@ const ClienteDashboard = () => {
         peso_kg: pesoKg ? parseFloat(pesoKg) : null,
         peso_informado_cliente: pesoKg ? parseFloat(pesoKg) : null,
         rascunho: isDraft,
-        status: isDraft ? "aguardando_coleta" : "aguardando_coleta",
+        status: "aguardando_coleta",
       } as any)
       .select("id, numero_pedido")
       .single();
@@ -158,7 +216,6 @@ const ClienteDashboard = () => {
       if (!isDraft) {
         await registrarMudancaStatus(o.id, null, "aguardando_coleta", user.id, "Pedido por peso criado pelo cliente");
       }
-      // Save weight items if hospital
       if (isHospital && weightItems.some(wi => wi.quantidade > 0)) {
         const wItems = weightItems.filter(wi => wi.quantidade > 0).map(wi => ({
           pedido_id: o.id,
@@ -180,51 +237,37 @@ const ClienteDashboard = () => {
   };
 
   const handleSubmit = async () => {
-    if (activeTab === "peso") {
-      await handleSubmitPeso(false);
-    } else {
-      await handleSubmitPecas(false);
-    }
+    if (activeTab === "peso") await handleSubmitPeso(false);
+    else await handleSubmitPecas(false);
   };
-
   const handleSaveDraft = async () => {
-    if (activeTab === "peso") {
-      await handleSubmitPeso(true);
-    } else {
-      await handleSubmitPecas(true);
-    }
+    if (activeTab === "peso") await handleSubmitPeso(true);
+    else await handleSubmitPecas(true);
   };
 
-  const latestOrder = orders.find(o => !o.rascunho);
-  const currentStep = latestOrder ? statusSteps.indexOf(latestOrder.status) : -1;
+  const latestOrder = orders.find(o => !o.rascunho && o.status !== "entregue");
 
-  // Initialize weight items from tipos_roupa for hospital
+  // Inicializa peso por tipo (hospital, aba Peso)
   useEffect(() => {
     if (isHospital && tiposRoupa.length > 0 && weightItems.length === 0) {
       setWeightItems(tiposRoupa.map(tr => ({ tipo_roupa_id: tr.id, quantidade: 0 })));
     }
+    if (isHospital && tiposRoupa.length > 0 && hospitalQtys.length === 0) {
+      setHospitalQtys(tiposRoupa.map(tr => ({ tipo_roupa_id: tr.id, quantidade: 0 })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHospital, tiposRoupa]);
 
   return (
-    <AppLayout title="Amaná" subtitle={profile?.nome || "Cliente"}>
-      {/* Progress tracker */}
+    <AppLayout title="Amaná" subtitle={`Olá, ${profile?.nome || "Cliente"}!`} actions={<NotificationBell />}>
+      {/* Progress tracker do pedido ativo */}
       {latestOrder && (
-        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card p-4 mb-5">
-          <p className="text-xs text-muted-foreground mb-3 font-semibold uppercase tracking-wider">
-            Pedido <span className="font-mono" style={{ color: "#5b8df6" }}>{latestOrder.numero_pedido}</span>
-          </p>
-          <div className="flex items-center justify-between">
-            {stepLabels.map((label, idx) => (
-              <div key={label} className="flex flex-col items-center flex-1">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mb-1 ${
-                  idx <= currentStep ? "text-primary-foreground" : "bg-secondary text-muted-foreground"
-                }`} style={idx <= currentStep ? { background: "#5b8df6" } : {}}>
-                  {idx < currentStep ? "✓" : idx + 1}
-                </div>
-                <span className={`text-[10px] font-medium ${idx <= currentStep ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
-              </div>
-            ))}
-          </div>
+        <div className="mb-5">
+          <OrderProgress
+            steps={buildSteps(latestOrder)}
+            currentIndex={currentStepIndex(latestOrder.status)}
+            numeroPedido={latestOrder.numero_pedido}
+          />
         </div>
       )}
 
@@ -241,7 +284,6 @@ const ClienteDashboard = () => {
             <input className="field-input opacity-60" value={`${profile?.nome || ""} (${isHospital ? "Hospital" : "Clínica"})`} readOnly />
           </div>
 
-          {/* Tabs */}
           {(showBothTabs || showOnlyPeca || showOnlyPeso) && (
             <div className="flex gap-2">
               {(showBothTabs || showOnlyPeca) && (
@@ -273,13 +315,64 @@ const ClienteDashboard = () => {
             </div>
           )}
 
-          {/* Tab: Por Peças */}
+          {/* Aba Por Peças */}
           {activeTab === "peca" && (
             <>
               {isHospital ? (
-                <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
-                  ⚠ Hospital — peças serão cadastradas pela lavanderia após a coleta.
-                </div>
+                <>
+                  {tiposRoupa.length > 0 ? (
+                    <div className="space-y-2">
+                      <label className="field-label">Tipos de roupa</label>
+                      {tiposRoupa.map((tr) => {
+                        const hq = hospitalQtys.find((h) => h.tipo_roupa_id === tr.id);
+                        return (
+                          <div key={tr.id} className="flex items-center gap-3">
+                            <span className="text-sm text-foreground flex-1">{tr.nome}</span>
+                            <input
+                              type="number"
+                              className="field-input w-20 text-center font-mono text-xs py-1.5"
+                              min={0}
+                              value={hq?.quantidade || ""}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setHospitalQtys((prev) => prev.map((h) => h.tipo_roupa_id === tr.id ? { ...h, quantidade: val } : h));
+                              }}
+                              placeholder="0"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
+                      ⚠ Nenhum tipo de roupa cadastrado pelo administrador.
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="field-label flex items-center gap-2">
+                      <Scale className="w-4 h-4" /> Peso estimado (kg) — opcional
+                    </label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      className="field-input font-mono"
+                      value={pesoEstimado}
+                      onChange={(e) => setPesoEstimado(e.target.value)}
+                      placeholder="Ex: 4.5"
+                    />
+                    <p className="text-[11px] mt-1 text-muted-foreground">
+                      Informe o peso aproximado se souber. O peso oficial é registrado pela lavanderia.
+                    </p>
+                  </div>
+
+                  {totalHospitalPieces > 0 && (
+                    <div className="flex justify-between items-center py-2.5 px-3 rounded-lg bg-[#0c0e14] border-t border-border">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase">Total de peças</span>
+                      <span className="text-lg font-extrabold font-mono" style={{ color: "#34c97a" }}>{totalHospitalPieces}</span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -322,7 +415,7 @@ const ClienteDashboard = () => {
             </>
           )}
 
-          {/* Tab: Por Peso */}
+          {/* Aba Por Peso */}
           {activeTab === "peso" && (
             <>
               {isHospital && tiposRoupa.length > 0 && (
@@ -397,35 +490,60 @@ const ClienteDashboard = () => {
               onClick={handleSubmit}
               disabled={saving || (activeTab === "peca" && !isHospital && items.length === 0)}
             >
-              {saving ? "Enviando..." : "Enviar Pedido"}
+              {saving ? "Enviando..." : isHospital && activeTab === "peca" ? "Salvar e aguardar coleta" : "Enviar Pedido"}
             </button>
           </div>
 
-          <button className="btn-ghost w-full" onClick={() => { setShowForm(false); setItems([]); setPesoKg(""); }}>Cancelar</button>
+          <button className="btn-ghost w-full" onClick={() => { setShowForm(false); setItems([]); setPesoKg(""); setPesoEstimado(""); }}>Cancelar</button>
         </div>
       )}
 
-      {/* Order history */}
+      {/* Histórico detalhado */}
       <div>
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Histórico de pedidos</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Meus pedidos</h3>
         {orders.length === 0 ? (
           <div className="empty-state"><div className="empty-state-icon">📋</div><p className="empty-state-text">Nenhum pedido ainda</p></div>
         ) : (
           <div className="space-y-2">
-            {orders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-card">
-                <div>
-                  <span className="font-mono text-sm font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">{new Date(order.criado_em).toLocaleDateString("pt-BR")}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {order.rascunho && (
-                    <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase rounded-md" style={{ background: "rgba(107,113,144,0.15)", color: "#6b7190" }}>Rascunho</span>
+            {orders.map((order) => {
+              const isExpanded = expandedOrder === order.id;
+              return (
+                <div key={order.id} className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card overflow-hidden">
+                  <button
+                    onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                    className="w-full flex items-center justify-between p-4 text-left"
+                  >
+                    <div>
+                      <span className="font-mono text-sm font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(order.criado_em).toLocaleDateString("pt-BR")}
+                        {order.entregue_em && ` • Entregue em ${new Date(order.entregue_em).toLocaleDateString("pt-BR")}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {order.rascunho && (
+                        <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase rounded-md" style={{ background: "rgba(107,113,144,0.15)", color: "#6b7190" }}>Rascunho</span>
+                      )}
+                      <StatusBadge status={order.status} />
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                    </div>
+                  </button>
+
+                  {isExpanded && !order.rascunho && (
+                    <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
+                      <OrderProgress
+                        steps={buildSteps(order)}
+                        currentIndex={currentStepIndex(order.status)}
+                      />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Linha do tempo</p>
+                        <OrderTimeline pedidoId={order.id} />
+                      </div>
+                    </div>
                   )}
-                  <StatusBadge status={order.status} />
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -434,6 +552,8 @@ const ClienteDashboard = () => {
         <ConfirmationModal numeroPedido={confirmation.pedido} variant="info" title="Pedido Criado" onClose={() => setConfirmation(null)}>
           <div className="flex justify-between"><span>Status:</span><span className="text-foreground">Aguardando coleta</span></div>
           {activeTab === "peca" && !isHospital && <div className="flex justify-between"><span>Peças:</span><span className="text-foreground font-mono">{totalPieces}</span></div>}
+          {activeTab === "peca" && isHospital && totalHospitalPieces > 0 && <div className="flex justify-between"><span>Peças:</span><span className="text-foreground font-mono">{totalHospitalPieces}</span></div>}
+          {activeTab === "peca" && isHospital && pesoEstimado && <div className="flex justify-between"><span>Peso estimado:</span><span className="text-foreground font-mono">{parseFloat(pesoEstimado).toFixed(3)} kg</span></div>}
           {activeTab === "peso" && pesoKg && <div className="flex justify-between"><span>Peso:</span><span className="text-foreground font-mono">{parseFloat(pesoKg).toFixed(3)} kg</span></div>}
         </ConfirmationModal>
       )}
