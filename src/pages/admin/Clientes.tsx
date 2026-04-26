@@ -44,6 +44,8 @@ const Clientes = () => {
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
   const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
 
   // Form state
   const [nome, setNome] = useState("");
@@ -110,10 +112,20 @@ const Clientes = () => {
   };
 
   const handleSave = async () => {
-    if (!nome.trim()) return;
+    console.log("[Clientes] handleSave start", { editing: editing?.id, nome });
+    setFormError("");
+    setFormSuccess("");
 
-    // Check unique name
-    const duplicate = clientes.find(c => c.nome.toLowerCase() === nome.trim().toLowerCase() && c.id !== editing?.id);
+    if (!nome.trim()) {
+      setNameError("Informe o nome do cliente.");
+      return;
+    }
+
+    // Check unique name (case-insensitive, trimmed)
+    const nomeLimpo = nome.trim();
+    const duplicate = clientes.find(
+      (c) => c.nome.trim().toLowerCase() === nomeLimpo.toLowerCase() && c.id !== editing?.id,
+    );
     if (duplicate) {
       setNameError("Já existe um cliente com este nome.");
       return;
@@ -129,40 +141,52 @@ const Clientes = () => {
     setSenhaError("");
     setSaving(true);
 
-    const payload: any = {
-      nome: nome.trim(), tipo, endereco: endereco || null, telefone: telefone || null,
-      email: email || null, responsavel: responsavel || null,
-      tipo_cobranca: tipoCobranca,
-      preco_peca: precoPeca ? Number(precoPeca) : 0,
-      preco_kg: precoKg ? Number(precoKg) : 0,
-      dias_coleta: diasColeta, observacoes: observacoes || null, ativo,
-    };
-
-    if (editing) {
-      await supabase.from("clientes").update(payload).eq("id", editing.id);
-    } else {
-      // Create auth user for the client
-      const syntheticEmail = `${nome.trim().toLowerCase().replace(/[^a-z0-9]/g, "")}.cliente@amana.local`;
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: syntheticEmail,
-        password: senha,
-        options: { data: { name: nome.trim() } },
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-create-cliente", {
+        body: {
+          id: editing?.id,
+          nome: nomeLimpo,
+          tipo,
+          senha: editing ? undefined : senha,
+          endereco: endereco.trim() || null,
+          telefone: telefone.trim() || null,
+          email: email.trim() || null,
+          responsavel: responsavel.trim() || null,
+          tipo_cobranca: tipoCobranca,
+          preco_peca: precoPeca || 0,
+          preco_kg: precoKg || 0,
+          dias_coleta: diasColeta,
+          observacoes: observacoes.trim() || null,
+          ativo,
+        },
       });
 
-      if (authError || !authData.user) {
+      console.log("[Clientes] handleSave response", { data, error });
+
+      if (error) {
+        setFormError(error.message || "Erro ao salvar cliente.");
         setSaving(false);
-        setSenhaError(authError?.message || "Erro ao criar conta do cliente");
+        return;
+      }
+      if (data?.error) {
+        setFormError(data.error);
+        setSaving(false);
         return;
       }
 
-      payload.auth_user_id = authData.user.id;
-      await supabase.from("clientes").insert(payload);
+      setFormSuccess(editing ? "Cliente atualizado com sucesso." : "Cliente cadastrado com sucesso.");
+      await fetchClientes();
+      setTimeout(() => {
+        setShowForm(false);
+        resetForm();
+        setFormSuccess("");
+      }, 900);
+    } catch (e: any) {
+      console.error("[Clientes] handleSave exception", e);
+      setFormError(e?.message || "Erro inesperado ao salvar.");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    setShowForm(false);
-    resetForm();
-    fetchClientes();
   };
 
   const toggleDia = (d: string) => {
@@ -307,6 +331,16 @@ const Clientes = () => {
           </div>
 
           {senhaError && <p className="text-xs text-destructive font-semibold">{senhaError}</p>}
+          {formError && (
+            <div className="rounded-lg bg-destructive/10 text-destructive text-sm font-semibold px-4 py-3">
+              {formError}
+            </div>
+          )}
+          {formSuccess && (
+            <div className="rounded-lg bg-success/10 text-success text-sm font-semibold px-4 py-3" style={{ background: "hsl(var(--success) / 0.1)", color: "hsl(var(--success))" }}>
+              {formSuccess}
+            </div>
+          )}
 
           {/* Cobrança */}
           <div>
