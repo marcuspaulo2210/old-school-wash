@@ -51,19 +51,19 @@ const PrimeiroAcesso = () => {
       return;
     }
 
-    // Mark primeiro_acesso = false in database (this change does NOT count towards the 2-change limit)
+    // Mark primeiro_acesso = false in BOTH tables to avoid the loop
+    // (a user may exist in usuarios and/or clientes; fetchUserData checks usuarios first)
     if (user) {
-      if (loginType === "cliente" && profile?.cliente_id) {
-        await supabase
+      await Promise.all([
+        supabase
           .from("clientes")
           .update({ primeiro_acesso: false } as any)
-          .eq("id", profile.cliente_id);
-      } else {
-        await supabase
+          .eq("auth_user_id", user.id),
+        supabase
           .from("usuarios")
           .update({ primeiro_acesso: false } as any)
-          .eq("id", user.id);
-      }
+          .eq("id", user.id),
+      ]);
     }
 
     markFirstAccessDone();
@@ -75,7 +75,7 @@ const PrimeiroAcesso = () => {
       motorista: "/motorista",
       producao: "/producao",
     };
-    navigate(routes[role || ""] || "/");
+    navigate(routes[role || ""] || "/", { replace: true });
   };
 
   return (
