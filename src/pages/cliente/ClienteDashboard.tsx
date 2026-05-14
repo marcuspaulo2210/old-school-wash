@@ -83,6 +83,7 @@ const ClienteDashboard = () => {
   // Hospital "por peças" — qtds por tipo + peso estimado opcional
   const [hospitalQtys, setHospitalQtys] = useState<HospitalQty[]>([]);
   const [pesoEstimado, setPesoEstimado] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome")
@@ -130,7 +131,12 @@ const ClienteDashboard = () => {
   };
 
   const handleSubmitPecas = async (isDraft: boolean) => {
-    if (!user || !profile?.cliente_id) return;
+    console.log("[NovoPedido] handleSubmitPecas called", { isDraft, profile, items, isHospital });
+    setSubmitError(null);
+    if (!user || !profile?.cliente_id) {
+      setSubmitError("ID do cliente não encontrado. Faça login novamente.");
+      return;
+    }
     if (!isHospital && items.length === 0) return;
     setSaving(true);
     const quemContou = isHospital ? "lavanderia" : "cliente";
@@ -147,6 +153,13 @@ const ClienteDashboard = () => {
       } as any)
       .select("id, numero_pedido")
       .single();
+
+    if (error) {
+      console.error("[NovoPedido] insert pedido (peca) erro:", error);
+      setSubmitError(`Falha ao criar pedido: ${error.message}`);
+      setSaving(false);
+      return;
+    }
 
     if (order && !error) {
       const o = order as any;
@@ -191,7 +204,12 @@ const ClienteDashboard = () => {
   };
 
   const handleSubmitPeso = async (isDraft: boolean) => {
-    if (!user || !profile?.cliente_id) return;
+    console.log("[NovoPedido] handleSubmitPeso called", { isDraft, profile, pesoKg });
+    setSubmitError(null);
+    if (!user || !profile?.cliente_id) {
+      setSubmitError("ID do cliente não encontrado. Faça login novamente.");
+      return;
+    }
     if (!isDraft && !pesoKg) { setPesoError("Informe o peso das roupas."); return; }
     setPesoError("");
     setSaving(true);
@@ -210,6 +228,13 @@ const ClienteDashboard = () => {
       } as any)
       .select("id, numero_pedido")
       .single();
+
+    if (error) {
+      console.error("[NovoPedido] insert pedido (peso) erro:", error);
+      setSubmitError(`Falha ao criar pedido: ${error.message}`);
+      setSaving(false);
+      return;
+    }
 
     if (order && !error) {
       const o = order as any;
