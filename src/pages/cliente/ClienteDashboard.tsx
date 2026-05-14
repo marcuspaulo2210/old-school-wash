@@ -519,6 +519,12 @@ const ClienteDashboard = () => {
             </button>
           </div>
 
+          {submitError && (
+            <div className="rounded-lg px-3 py-2.5 text-xs font-medium" style={{ background: "rgba(224,80,80,0.12)", color: "#e05050", border: "1px solid rgba(224,80,80,0.3)" }}>
+              {submitError}
+            </div>
+          )}
+
           <button className="btn-ghost w-full" onClick={() => { setShowForm(false); setItems([]); setPesoKg(""); setPesoEstimado(""); }}>Cancelar</button>
         </div>
       )}
