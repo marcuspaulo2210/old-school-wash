@@ -6,6 +6,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { MessageSquare, TruckIcon, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface ItemPedido {
   id: string;
@@ -91,9 +92,18 @@ const AdminPedidos = () => {
   const handleAssignMotorista = async () => {
     if (!selectedOrder || !assignMotorista || !user) return;
     setSaving(true);
-    await supabase.from("pedidos").update({ motorista_id: assignMotorista } as any).eq("id", selectedOrder.id);
+    const { error } = await supabase
+      .from("pedidos")
+      .update({ motorista_id: assignMotorista } as any)
+      .eq("id", selectedOrder.id);
     setSaving(false);
-    setSelectedOrder({ ...selectedOrder, motorista_id: assignMotorista });
+    if (error) {
+      console.error("Erro ao atribuir motorista:", error);
+      toast.error("Erro ao atribuir motorista: " + error.message);
+      return;
+    }
+    toast.success("Motorista atribuído com sucesso!");
+    setSelectedOrder(null);
     fetchOrders();
   };
 
