@@ -25,7 +25,6 @@ interface AuthContextType {
   signInFuncionario: (identificador: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
-  markFirstAccessDone: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -195,12 +194,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error as Error | null };
   };
 
-  const markFirstAccessDone = () => {
-    if (profile) {
-      setProfile({ ...profile, primeiro_acesso: false });
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -215,7 +208,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signInFuncionario,
         signOut,
         updatePassword,
-        markFirstAccessDone,
       }}
     >
       {children}

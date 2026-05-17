@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LogOut, ChevronLeft } from "lucide-react";
-import FirstAccessBanner from "@/components/FirstAccessBanner";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -51,7 +50,6 @@ const AppLayout = ({ children, title, subtitle, backTo, actions }: AppLayoutProp
         </div>
       </header>
       <main className="page-content animate-fade-in">
-        <FirstAccessBanner />
         {children}
       </main>
     </div>

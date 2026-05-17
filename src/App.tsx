@@ -7,7 +7,6 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import ImpersonationBar from "@/components/ImpersonationBar";
 
 import Login from "./pages/Login";
-import PrimeiroAcesso from "./pages/PrimeiroAcesso";
 import AlterarSenha from "./pages/AlterarSenha";
 import AdminDashboard from "./pages/admin/Dashboard";
 import TiposRoupa from "./pages/admin/TiposRoupa";
@@ -38,18 +37,9 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   return <>{children}</>;
 };
 
-const FirstAccessRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading, isProfileLoaded } = useAuth();
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
-  if (!user) return <Navigate to="/" replace />;
-  if (!isProfileLoaded) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
-  return <>{children}</>;
-};
-
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Login />} />
-    <Route path="/primeiro-acesso" element={<FirstAccessRoute><PrimeiroAcesso /></FirstAccessRoute>} />
     <Route path="/alterar-senha" element={<ProtectedRoute><AlterarSenha /></ProtectedRoute>} />
 
     {/* Admin */}
