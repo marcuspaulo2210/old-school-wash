@@ -38,12 +38,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loginType, setLoginType] = useState<LoginType | null>(null);
 
   const fetchUserData = async (userId: string) => {
-    // Try usuarios first (funcionário)
-    const { data: usuario } = await supabase
-      .from("usuarios")
-      .select("nome, email, perfil, cliente_id, primeiro_acesso, username")
-      .eq("id", userId)
-      .single();
+    // Fetch both in parallel; clientes wins when present (login por nome da clínica)
+    const [{ data: usuario }, { data: cliente }] = await Promise.all([
+      supabase
+        .from("usuarios")
+        .select("nome, email, perfil, cliente_id, primeiro_acesso, username")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("clientes")
+        .select("id, nome, email, primeiro_acesso")
+        .eq("auth_user_id", userId)
+        .maybeSingle(),
+    ]);
+
+    // Prefer clientes record when this auth user is linked to a cliente
+    if (cliente) {
+      setRole("cliente");
+      setLoginType("cliente");
+      setProfile({
+        nome: cliente.nome,
+        email: cliente.email || "",
+        cliente_id: cliente.id,
+        // If either source says first access is done, treat as done
+        primeiro_acesso: cliente.primeiro_acesso && (usuario?.primeiro_acesso ?? true),
+      });
+      return;
+    }
 
     if (usuario) {
       const perfil = usuario.perfil as AppRole;
@@ -55,30 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         primeiro_acesso: usuario.primeiro_acesso,
         username: usuario.username,
       });
-      if (perfil === "cliente") {
-        setLoginType("cliente");
-      } else {
-        setLoginType("funcionario");
-      }
-      return;
-    }
-
-    // Try clientes (login de cliente direto)
-    const { data: cliente } = await supabase
-      .from("clientes")
-      .select("id, nome, email, primeiro_acesso")
-      .eq("auth_user_id", userId)
-      .single();
-
-    if (cliente) {
-      setRole("cliente");
-      setLoginType("cliente");
-      setProfile({
-        nome: cliente.nome,
-        email: cliente.email || "",
-        cliente_id: cliente.id,
-        primeiro_acesso: cliente.primeiro_acesso,
-      });
+      setLoginType(perfil === "cliente" ? "cliente" : "funcionario");
       return;
     }
 
