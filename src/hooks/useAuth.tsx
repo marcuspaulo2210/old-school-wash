@@ -17,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isProfileLoaded: boolean;
   role: AppRole | null;
   profile: Profile | null;
   loginType: LoginType | null;
@@ -33,11 +34,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   const [role, setRole] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loginType, setLoginType] = useState<LoginType | null>(null);
 
   const fetchUserData = async (userId: string) => {
+    setIsProfileLoaded(false);
+
     // Fetch both in parallel; clientes wins when present (login por nome da clínica)
     const [{ data: usuario }, { data: cliente }] = await Promise.all([
       supabase
@@ -63,6 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // If either source says first access is done, treat as done
         primeiro_acesso: cliente.primeiro_acesso && (usuario?.primeiro_acesso ?? true),
       });
+      setIsProfileLoaded(true);
       return;
     }
 
@@ -77,11 +82,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         username: usuario.username,
       });
       setLoginType(perfil === "cliente" ? "cliente" : "funcionario");
+      setIsProfileLoaded(true);
       return;
     }
 
     setRole(null);
     setProfile(null);
+    setIsProfileLoaded(true);
   };
 
   useEffect(() => {
@@ -90,20 +97,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setTimeout(() => fetchUserData(session.user.id), 0);
+          setIsProfileLoaded(false);
+          setTimeout(async () => {
+            await fetchUserData(session.user.id);
+          }, 0);
         } else {
           setRole(null);
           setProfile(null);
           setLoginType(null);
+          setIsProfileLoaded(true);
         }
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchUserData(session.user.id);
+      if (session?.user) {
+        setIsProfileLoaded(false);
+        await fetchUserData(session.user.id);
+      } else {
+        setIsProfileLoaded(true);
+      }
       setLoading(false);
     });
 
@@ -191,6 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         session,
         loading,
+        isProfileLoaded,
         role,
         profile,
         loginType,
