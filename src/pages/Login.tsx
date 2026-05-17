@@ -6,7 +6,7 @@ import { Eye, EyeOff } from "lucide-react";
 type LoginTab = "cliente" | "funcionario";
 
 const Login = () => {
-  const { signInCliente, signInFuncionario, user, role, profile, loading, isProfileLoaded } = useAuth();
+  const { signInCliente, signInFuncionario, user, role, loading, isProfileLoaded } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<LoginTab>("cliente");
   const [nomeClinica, setNomeClinica] = useState("");
