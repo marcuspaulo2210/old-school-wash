@@ -27,14 +27,10 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
-  const { user, loading, isProfileLoaded, role, profile } = useAuth();
+  const { user, loading, isProfileLoaded, role } = useAuth();
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!user) return <Navigate to="/" replace />;
   if (!isProfileLoaded) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
-  
-  // Redirect to first-access password change
-  if (user && isProfileLoaded && !loading && profile?.primeiro_acesso === true) return <Navigate to="/primeiro-acesso" replace />;
-
   // Allow admin to access any route when impersonating
   const isImpersonating = !!localStorage.getItem("amana_impersonating");
   if (allowedRoles && role && !allowedRoles.includes(role) && !isImpersonating) return <Navigate to="/" replace />;
@@ -43,19 +39,10 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
 };
 
 const FirstAccessRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading, isProfileLoaded, profile, role } = useAuth();
+  const { user, loading, isProfileLoaded } = useAuth();
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!user) return <Navigate to="/" replace />;
   if (!isProfileLoaded) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
-  if (user && isProfileLoaded && !loading && profile?.primeiro_acesso !== true) {
-    const routes: Record<string, string> = {
-      admin: "/admin",
-      cliente: "/cliente",
-      motorista: "/motorista",
-      producao: "/producao",
-    };
-    return <Navigate to={routes[role || ""] || "/"} replace />;
-  }
   return <>{children}</>;
 };
 
