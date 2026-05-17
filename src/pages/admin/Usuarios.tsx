@@ -124,6 +124,7 @@ const Usuarios = () => {
       email,
       perfil: perfil as any,
       cliente_id: (perfil === "cliente" && clienteId) ? clienteId : null,
+      primeiro_acesso: false,
     } as any);
 
     setSaving(false);
