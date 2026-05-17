@@ -6,7 +6,7 @@ import { Eye, EyeOff } from "lucide-react";
 type LoginTab = "cliente" | "funcionario";
 
 const Login = () => {
-  const { signInCliente, signInFuncionario, user, role, loading } = useAuth();
+  const { signInCliente, signInFuncionario, user, role, profile, loading, isProfileLoaded } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<LoginTab>("cliente");
   const [nomeClinica, setNomeClinica] = useState("");
@@ -17,16 +17,21 @@ const Login = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user && role) {
+    if (!loading && user && isProfileLoaded && role) {
+      if (profile?.primeiro_acesso) {
+        navigate("/primeiro-acesso", { replace: true });
+        return;
+      }
+
       const routes: Record<string, string> = {
         admin: "/admin",
         cliente: "/cliente",
         motorista: "/motorista",
         producao: "/producao",
       };
-      navigate(routes[role] || "/");
+      navigate(routes[role] || "/", { replace: true });
     }
-  }, [user, role, loading, navigate]);
+  }, [user, role, profile, loading, isProfileLoaded, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
