@@ -18,11 +18,6 @@ const Login = () => {
 
   useEffect(() => {
     if (!loading && user && isProfileLoaded && role) {
-      if (profile?.primeiro_acesso) {
-        navigate("/primeiro-acesso", { replace: true });
-        return;
-      }
-
       const routes: Record<string, string> = {
         admin: "/admin",
         cliente: "/cliente",
@@ -31,7 +26,7 @@ const Login = () => {
       };
       navigate(routes[role] || "/", { replace: true });
     }
-  }, [user, role, profile, loading, isProfileLoaded, navigate]);
+  }, [user, role, loading, isProfileLoaded, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
