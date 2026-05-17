@@ -16,6 +16,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import FirstAccessBanner from "@/components/FirstAccessBanner";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -214,7 +215,10 @@ const AdminLayout = ({ children, title, subtitle, actions }: AdminLayoutProps) =
           <div className="flex items-center gap-2">{actions}</div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 animate-fade-in">{children}</main>
+        <main className="flex-1 p-4 md:p-6 animate-fade-in">
+          <FirstAccessBanner />
+          {children}
+        </main>
       </div>
     </div>
   );
