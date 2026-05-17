@@ -323,6 +323,7 @@ const Clientes = () => {
             <div>
               <label className="field-label">Email</label>
               <input className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <p className="text-[11px] text-muted-foreground mt-1">Opcional</p>
             </div>
             <div>
               <label className="field-label">Responsável</label>
