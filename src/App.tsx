@@ -11,8 +11,7 @@ import AlterarSenha from "./pages/AlterarSenha";
 import AdminDashboard from "./pages/admin/Dashboard";
 import TiposRoupa from "./pages/admin/TiposRoupa";
 import AdminPedidos from "./pages/admin/Pedidos";
-import Clientes from "./pages/admin/Clientes";
-import Usuarios from "./pages/admin/Usuarios";
+import Acessos from "./pages/admin/Acessos";
 import Servicos from "./pages/admin/Servicos";
 import Rotas from "./pages/admin/Rotas";
 import Precos from "./pages/admin/Precos";
@@ -46,8 +45,9 @@ const AppRoutes = () => (
     <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
     <Route path="/admin/roupas" element={<ProtectedRoute allowedRoles={["admin"]}><TiposRoupa /></ProtectedRoute>} />
     <Route path="/admin/pedidos" element={<ProtectedRoute allowedRoles={["admin"]}><AdminPedidos /></ProtectedRoute>} />
-    <Route path="/admin/clientes" element={<ProtectedRoute allowedRoles={["admin"]}><Clientes /></ProtectedRoute>} />
-    <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={["admin"]}><Usuarios /></ProtectedRoute>} />
+    <Route path="/admin/acessos" element={<ProtectedRoute allowedRoles={["admin"]}><Acessos /></ProtectedRoute>} />
+    <Route path="/admin/clientes" element={<Navigate to="/admin/acessos" replace />} />
+    <Route path="/admin/usuarios" element={<Navigate to="/admin/acessos" replace />} />
     <Route path="/admin/servicos" element={<ProtectedRoute allowedRoles={["admin"]}><Servicos /></ProtectedRoute>} />
     <Route path="/admin/rotas" element={<ProtectedRoute allowedRoles={["admin"]}><Rotas /></ProtectedRoute>} />
     <Route path="/admin/precos" element={<ProtectedRoute allowedRoles={["admin"]}><Precos /></ProtectedRoute>} />
