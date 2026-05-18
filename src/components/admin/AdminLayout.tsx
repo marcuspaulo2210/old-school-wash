@@ -5,10 +5,9 @@ import {
   LayoutGrid,
   ClipboardList,
   AlertTriangle,
-  Building2,
   Shirt,
   ListChecks,
-  User,
+  Users,
   MapPin,
   DollarSign,
   BarChart3,
@@ -36,10 +35,9 @@ const menuCategories = [
   {
     label: "Cadastros",
     items: [
-      { label: "Clientes", path: "/admin/clientes", icon: Building2 },
+      { label: "Acessos", path: "/admin/acessos", icon: Users },
       { label: "Tipos de Roupa", path: "/admin/roupas", icon: Shirt },
       { label: "Serviços", path: "/admin/servicos", icon: ListChecks },
-      { label: "Usuários", path: "/admin/usuarios", icon: User },
       { label: "Rotas", path: "/admin/rotas", icon: MapPin },
     ],
   },
