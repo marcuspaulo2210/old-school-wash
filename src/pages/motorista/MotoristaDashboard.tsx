@@ -81,7 +81,6 @@ const MotoristaDashboard = () => {
     const { data } = await supabase
       .from("pedidos")
       .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, peso_kg, peso_informado_cliente, clientes(nome, endereco, tipo)")
-      .eq("motorista_id", user.id)
       .in("status", ["pronto_para_entrega", "saiu_para_entrega"])
       .order("criado_em", { ascending: true });
 
@@ -137,7 +136,7 @@ const MotoristaDashboard = () => {
   const confirmSaiuEntrega = async (order: Pedido) => {
     if (!user) return;
     setConfirming(true);
-    await supabase.from("pedidos").update({ status: "saiu_para_entrega" as any, saiu_em: new Date().toISOString() } as any).eq("id", order.id);
+    await supabase.from("pedidos").update({ status: "saiu_para_entrega" as any, saiu_em: new Date().toISOString(), motorista_id: user.id } as any).eq("id", order.id);
     await registrarMudancaStatus(order.id, "pronto_para_entrega", "saiu_para_entrega", user.id, "Saiu para entrega");
     const pedido = order.numero_pedido;
     setSelectedOrder(null);
