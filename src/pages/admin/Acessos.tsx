@@ -436,6 +436,20 @@ const Acessos = () => {
                   </select>
                 </div>
               )}
+              {novoTipo === "cliente" && (
+                <div className="md:col-span-2">
+                  <label className="field-label">Rota de coleta {tipoCliente === "clinica" ? "*" : "(opcional)"}</label>
+                  <select className="field-select" value={rotaId} onChange={(e) => setRotaId(e.target.value)}>
+                    <option value="">Selecione...</option>
+                    {rotas.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.nome} — {r.periodo === "manha" ? "Manhã" : r.periodo === "tarde" ? "Tarde" : r.periodo === "livre" ? "Livre" : "—"}
+                        {r.dias_semana && r.dias_semana.length > 0 ? ` — ${r.dias_semana.join(", ")}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="field-label">Email {novoTipo === "funcionario" ? "*" : ""}</label>
@@ -504,6 +518,20 @@ const Acessos = () => {
                     <option value="admin">Administrador</option>
                     <option value="motorista">Motorista</option>
                     <option value="producao">Produção</option>
+                  </select>
+                </div>
+              )}
+              {editTarget.origem === "cliente" && (
+                <div className="md:col-span-2">
+                  <label className="field-label">Rota de coleta</label>
+                  <select className="field-select" value={editRotaId} onChange={(e) => setEditRotaId(e.target.value)}>
+                    <option value="">Sem rota</option>
+                    {rotas.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.nome} — {r.periodo === "manha" ? "Manhã" : r.periodo === "tarde" ? "Tarde" : r.periodo === "livre" ? "Livre" : "—"}
+                        {r.dias_semana && r.dias_semana.length > 0 ? ` — ${r.dias_semana.join(", ")}` : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
