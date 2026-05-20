@@ -619,6 +619,19 @@ const ClienteDashboard = () => {
                         steps={buildSteps(order)}
                         currentIndex={currentStepIndex(order.status)}
                       />
+                      {itensSaidaMap[order.id] && itensSaidaMap[order.id].length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Peças que serão devolvidas</p>
+                          <div className="space-y-1 rounded-lg p-3" style={{ background: "rgba(91,141,246,0.08)" }}>
+                            {itensSaidaMap[order.id].map((it, i) => (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className="text-foreground">{it.nome}</span>
+                                <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>{it.quantidade}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Linha do tempo</p>
                         <OrderTimeline pedidoId={order.id} />
