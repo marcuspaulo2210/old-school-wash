@@ -8,7 +8,8 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import OrderProgress, { ProgressStep } from "@/components/OrderProgress";
 import OrderTimeline from "@/components/OrderTimeline";
 import NotificationBell from "@/components/NotificationBell";
-import { Plus, X, Scale, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { calcDataColeta, formatDataColeta, toIsoDate, RotaLite } from "@/lib/coletaDate";
 
 interface TipoRoupa { id: string; nome: string; }
 interface ItemPedido { tipo_roupa_id: string; descricao_livre: string; quantidade_original: number; }
@@ -33,6 +34,15 @@ interface UserPermissions {
 }
 
 interface HospitalQty { tipo_roupa_id: string; quantidade: number; }
+
+interface ClienteFull {
+  tipo: string;
+  rota_id: string | null;
+}
+interface RotaInfo extends RotaLite {
+  id: string;
+  motorista_id: string | null;
+}
 
 const buildSteps = (p: Pedido): ProgressStep[] => {
   const order = ["aguardando_coleta", "coletado", "em_producao", "pronto_para_entrega", "saiu_para_entrega", "entregue"];
@@ -68,6 +78,8 @@ const ClienteDashboard = () => {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [clienteInfo, setClienteInfo] = useState<{ tipo: string } | null>(null);
+  const [rotaInfo, setRotaInfo] = useState<RotaInfo | null>(null);
+  const [itensSaidaMap, setItensSaidaMap] = useState<Record<string, { nome: string; quantidade: number }[]>>({});
   const [confirmation, setConfirmation] = useState<{ pedido: string } | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -90,8 +102,20 @@ const ClienteDashboard = () => {
       .then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
 
     if (user && profile?.cliente_id) {
-      supabase.from("clientes").select("tipo").eq("id", profile.cliente_id).single()
-        .then(({ data }) => { if (data) setClienteInfo(data as any); });
+      supabase.from("clientes").select("tipo, rota_id").eq("id", profile.cliente_id).single()
+        .then(async ({ data }) => {
+          if (!data) return;
+          const c = data as unknown as ClienteFull;
+          setClienteInfo({ tipo: c.tipo });
+          if (c.rota_id) {
+            const { data: r } = await supabase
+              .from("rotas")
+              .select("id, dias_semana, horario_corte, periodo, motorista_id")
+              .eq("id", c.rota_id)
+              .single();
+            if (r) setRotaInfo(r as any);
+          }
+        });
 
       supabase.from("usuarios").select("permite_cobranca_peca, permite_cobranca_peso").eq("id", user.id).single()
         .then(({ data }) => {
@@ -109,6 +133,7 @@ const ClienteDashboard = () => {
   }, [user, profile]);
 
   const isHospital = clienteInfo?.tipo === "hospital";
+  const dataColeta = rotaInfo ? calcDataColeta(rotaInfo) : new Date();
   const showBothTabs = permissions.permite_cobranca_peca && permissions.permite_cobranca_peso;
   const showOnlyPeca = permissions.permite_cobranca_peca && !permissions.permite_cobranca_peso;
   const showOnlyPeso = !permissions.permite_cobranca_peca && permissions.permite_cobranca_peso;
@@ -128,6 +153,20 @@ const ClienteDashboard = () => {
       .eq("cliente_id", profile.cliente_id)
       .order("criado_em", { ascending: false });
     setOrders((data as unknown as Pedido[]) || []);
+    const ids = ((data as any) || []).filter((o: any) => ["pronto_para_entrega","saiu_para_entrega","entregue"].includes(o.status)).map((o: any) => o.id);
+    if (ids.length > 0) {
+      const { data: saidas } = await supabase
+        .from("itens_saida")
+        .select("pedido_id, quantidade, descricao_livre, tipos_roupa(nome)")
+        .in("pedido_id", ids);
+      const m: Record<string, { nome: string; quantidade: number }[]> = {};
+      (saidas as any[] || []).forEach((s) => {
+        const arr = m[s.pedido_id] || [];
+        arr.push({ nome: s.tipos_roupa?.nome || s.descricao_livre || "Item", quantidade: s.quantidade });
+        m[s.pedido_id] = arr;
+      });
+      setItensSaidaMap(m);
+    }
   };
 
   const handleSubmitPecas = async (isDraft: boolean) => {
@@ -150,6 +189,8 @@ const ClienteDashboard = () => {
         rascunho: isDraft,
         status: "aguardando_coleta",
         peso_informado_cliente: isHospital && pesoEstimado ? parseFloat(pesoEstimado) : null,
+        data_coleta_prevista: rotaInfo ? toIsoDate(dataColeta) : null,
+        motorista_id: rotaInfo?.motorista_id || null,
       } as any)
       .select("id, numero_pedido")
       .single();
@@ -225,6 +266,8 @@ const ClienteDashboard = () => {
         peso_informado_cliente: pesoKg ? parseFloat(pesoKg) : null,
         rascunho: isDraft,
         status: "aguardando_coleta",
+        data_coleta_prevista: rotaInfo ? toIsoDate(dataColeta) : null,
+        motorista_id: rotaInfo?.motorista_id || null,
       } as any)
       .select("id, numero_pedido")
       .single();
@@ -500,6 +543,16 @@ const ClienteDashboard = () => {
             <textarea className="field-input min-h-[60px] resize-none" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Descrição das roupas, urgência, etc." />
           </div>
 
+          {rotaInfo && (
+            <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: "rgba(52,201,122,0.10)", border: "1px solid rgba(52,201,122,0.3)" }}>
+              <Calendar className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "#34c97a" }} />
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sua coleta está prevista para</p>
+                <p className="text-lg font-extrabold capitalize mt-0.5" style={{ color: "#34c97a" }}>{formatDataColeta(dataColeta)}</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
               className="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all"
@@ -566,6 +619,19 @@ const ClienteDashboard = () => {
                         steps={buildSteps(order)}
                         currentIndex={currentStepIndex(order.status)}
                       />
+                      {itensSaidaMap[order.id] && itensSaidaMap[order.id].length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Peças que serão devolvidas</p>
+                          <div className="space-y-1 rounded-lg p-3" style={{ background: "rgba(91,141,246,0.08)" }}>
+                            {itensSaidaMap[order.id].map((it, i) => (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className="text-foreground">{it.nome}</span>
+                                <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>{it.quantidade}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Linha do tempo</p>
                         <OrderTimeline pedidoId={order.id} />

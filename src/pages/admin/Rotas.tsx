@@ -10,6 +10,8 @@ interface Rota {
   dias_semana: string[];
   observacoes: string | null;
   ativo: boolean;
+  periodo?: string | null;
+  horario_corte?: string | null;
 }
 
 interface Motorista { id: string; nome: string; }
@@ -34,6 +36,7 @@ const Rotas = () => {
   const [dias, setDias] = useState<string[]>([]);
   const [obs, setObs] = useState("");
   const [clientesSelecionados, setClientesSelecionados] = useState<string[]>([]);
+  const [periodo, setPeriodo] = useState<"manha" | "tarde" | "livre">("manha");
 
   const fetchAll = async () => {
     const [{ data: r }, { data: m }, { data: c }] = await Promise.all([
@@ -59,7 +62,7 @@ const Rotas = () => {
   };
 
   const resetForm = () => {
-    setNome(""); setMotoristaId(""); setDias([]); setObs(""); setClientesSelecionados([]); setEditing(null);
+    setNome(""); setMotoristaId(""); setDias([]); setObs(""); setClientesSelecionados([]); setEditing(null); setPeriodo("manha");
   };
 
   const openEdit = (r: Rota) => {
@@ -68,6 +71,7 @@ const Rotas = () => {
     setMotoristaId(r.motorista_id || "");
     setDias(r.dias_semana || []);
     setObs(r.observacoes || "");
+    setPeriodo(((r.periodo as any) || "manha"));
     setShowForm(true);
     // Load clientes for this rota
     supabase.from("rotas_clientes").select("cliente_id").eq("rota_id", r.id).order("ordem")
@@ -77,11 +81,14 @@ const Rotas = () => {
   const handleSave = async () => {
     if (!nome.trim()) return;
     setSaving(true);
+    const horario_corte = periodo === "manha" ? "12:00:00" : periodo === "tarde" ? "18:00:00" : null;
     const payload: any = {
       nome: nome.trim(),
       motorista_id: motoristaId || null,
       dias_semana: dias,
       observacoes: obs || null,
+      periodo,
+      horario_corte,
     };
 
     let rotaId: string;
@@ -147,6 +154,21 @@ const Rotas = () => {
                 {motoristas.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select>
             </div>
+          </div>
+          <div>
+            <label className="field-label">Período da rota *</label>
+            <div className="flex gap-2 mt-1">
+              {(["manha","tarde","livre"] as const).map((p) => (
+                <button key={p} type="button" onClick={() => setPeriodo(p)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${periodo === p ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
+                >{p === "manha" ? "Manhã" : p === "tarde" ? "Tarde" : "Livre"}</button>
+              ))}
+            </div>
+            <p className="text-[11px] mt-2 text-muted-foreground">
+              {periodo === "manha" && "Horário de corte: 12:00 — pedidos após esse horário serão agendados para o próximo dia de coleta"}
+              {periodo === "tarde" && "Horário de corte: 18:00 — pedidos após esse horário serão agendados para o próximo dia de coleta"}
+              {periodo === "livre" && "Sem horário de corte — coleta disponível a qualquer momento (recomendado para hospitais)"}
+            </p>
           </div>
           <div>
             <label className="field-label">Dias da semana</label>

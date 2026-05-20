@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       dias_coleta,
       observacoes,
       ativo,
+      rota_id,
     } = body || {};
 
     if (!nome || !String(nome).trim()) return jsonResponse({ error: "Nome é obrigatório" }, 400);
@@ -96,6 +97,7 @@ Deno.serve(async (req) => {
       dias_coleta: Array.isArray(dias_coleta) ? dias_coleta : [],
       observacoes: observacoes || null,
       ativo: ativo !== false,
+      rota_id: rota_id || null,
     };
 
     if (id) {

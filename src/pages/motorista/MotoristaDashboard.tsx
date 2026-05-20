@@ -6,7 +6,8 @@ import AppLayout from "@/components/AppLayout";
 import OrderCard from "@/components/OrderCard";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import StatusBadge from "@/components/StatusBadge";
-import { MapPin, MessageSquare, Plus, X, Package, Truck } from "lucide-react";
+import { MapPin, MessageSquare, Plus, X, Package, Truck, Scale } from "lucide-react";
+import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface ItemPedido {
@@ -56,6 +57,38 @@ const MotoristaDashboard = () => {
   const [solicObs, setSolicObs] = useState("");
   const [solicSaving, setSolicSaving] = useState(false);
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoCliente[]>([]);
+
+  // Lançar peso
+  const [pesoTarget, setPesoTarget] = useState<Pedido | null>(null);
+  const [pesoValor, setPesoValor] = useState("");
+  const [pesoObs, setPesoObs] = useState("");
+  const [pesoSaving, setPesoSaving] = useState(false);
+
+  const handleSalvarPeso = async () => {
+    if (!user || !pesoTarget) return;
+    const v = parseFloat(pesoValor);
+    if (!v || v <= 0) { toast.error("Informe um peso válido"); return; }
+    setPesoSaving(true);
+    const nowIso = new Date().toISOString();
+    await supabase.from("pedidos").update({
+      peso_motorista_kg: v,
+      peso_motorista_em: nowIso,
+      peso_motorista_obs: pesoObs || null,
+    } as any).eq("id", pesoTarget.id);
+    const { data: ped } = await supabase.from("pedidos").select("cliente_id").eq("id", pesoTarget.id).single();
+    await supabase.from("lancamentos_peso").insert({
+      pedido_id: pesoTarget.id,
+      cliente_id: (ped as any)?.cliente_id,
+      motorista_id: user.id,
+      peso_kg: v,
+      observacao: pesoObs || null,
+    } as any);
+    toast.success(`Peso de ${v.toFixed(3)} kg salvo!`);
+    setPesoTarget(null);
+    setPesoValor("");
+    setPesoObs("");
+    setPesoSaving(false);
+  };
 
   const fetchOrders = async () => {
     if (!user) return;
@@ -406,6 +439,35 @@ const MotoristaDashboard = () => {
             )}
 
             <button className="btn-ghost w-full" onClick={() => setSelectedOrder(null)}>Fechar</button>
+            <button
+              className="w-full py-2 text-xs font-semibold rounded-lg inline-flex items-center justify-center gap-1.5"
+              style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}
+              onClick={() => { setPesoTarget(selectedOrder); setPesoValor(""); setPesoObs(""); }}
+            >
+              <Scale className="w-4 h-4" /> Lançar peso
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pesoTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => setPesoTarget(null)}>
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-foreground">Lançar peso — {pesoTarget.clientes?.nome}</h3>
+              <button onClick={() => setPesoTarget(null)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
+            </div>
+            <div>
+              <label className="field-label">Peso (kg) *</label>
+              <input type="number" step="0.001" className="field-input font-mono" value={pesoValor} onChange={(e) => setPesoValor(e.target.value)} placeholder="Ex: 4.5" />
+            </div>
+            <div>
+              <label className="field-label">Observação</label>
+              <textarea className="field-input min-h-[50px] resize-none" value={pesoObs} onChange={(e) => setPesoObs(e.target.value)} />
+            </div>
+            <button className="btn-primary w-full" onClick={handleSalvarPeso} disabled={pesoSaving}>
+              {pesoSaving ? "Salvando..." : "Salvar peso"}
+            </button>
           </div>
         </div>
       )}
