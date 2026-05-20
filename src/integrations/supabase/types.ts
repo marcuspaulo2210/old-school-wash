@@ -32,6 +32,7 @@ export type Database = {
           primeiro_acesso: boolean
           quantidade_trocas_senha: number
           responsavel: string | null
+          rota_id: string | null
           telefone: string | null
           tentativas_login: number
           tipo: Database["public"]["Enums"]["tipo_cliente"]
@@ -54,6 +55,7 @@ export type Database = {
           primeiro_acesso?: boolean
           quantidade_trocas_senha?: number
           responsavel?: string | null
+          rota_id?: string | null
           telefone?: string | null
           tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
@@ -76,12 +78,21 @@ export type Database = {
           primeiro_acesso?: boolean
           quantidade_trocas_senha?: number
           responsavel?: string | null
+          rota_id?: string | null
           telefone?: string | null
           tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clientes_rota_id_fkey"
+            columns: ["rota_id"]
+            isOneToOne: false
+            referencedRelation: "rotas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conexao_ok: {
         Row: {
@@ -243,6 +254,99 @@ export type Database = {
           },
         ]
       }
+      itens_saida: {
+        Row: {
+          criado_em: string
+          criado_por: string | null
+          descricao_livre: string | null
+          id: string
+          observacao: string | null
+          pedido_id: string
+          quantidade: number
+          tipo_roupa_id: string | null
+        }
+        Insert: {
+          criado_em?: string
+          criado_por?: string | null
+          descricao_livre?: string | null
+          id?: string
+          observacao?: string | null
+          pedido_id: string
+          quantidade?: number
+          tipo_roupa_id?: string | null
+        }
+        Update: {
+          criado_em?: string
+          criado_por?: string | null
+          descricao_livre?: string | null
+          id?: string
+          observacao?: string | null
+          pedido_id?: string
+          quantidade?: number
+          tipo_roupa_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_saida_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_saida_tipo_roupa_id_fkey"
+            columns: ["tipo_roupa_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_roupa"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamentos_peso: {
+        Row: {
+          cliente_id: string
+          criado_em: string
+          id: string
+          motorista_id: string
+          observacao: string | null
+          pedido_id: string
+          peso_kg: number
+        }
+        Insert: {
+          cliente_id: string
+          criado_em?: string
+          id?: string
+          motorista_id: string
+          observacao?: string | null
+          pedido_id: string
+          peso_kg: number
+        }
+        Update: {
+          cliente_id?: string
+          criado_em?: string
+          id?: string
+          motorista_id?: string
+          observacao?: string | null
+          pedido_id?: string
+          peso_kg?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_peso_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_peso_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       log_impersonacao: {
         Row: {
           acessado_em: string
@@ -310,6 +414,7 @@ export type Database = {
           cliente_id: string
           coletado_em: string | null
           criado_em: string
+          data_coleta_prevista: string | null
           divergencia_resolvida: boolean
           embalado_em: string | null
           entregue_em: string | null
@@ -322,6 +427,9 @@ export type Database = {
           obs_producao: string | null
           peso_informado_cliente: number | null
           peso_kg: number | null
+          peso_motorista_em: string | null
+          peso_motorista_kg: number | null
+          peso_motorista_obs: string | null
           peso_recebido_producao: number | null
           pronto_em: string | null
           quem_contou: Database["public"]["Enums"]["quem_contou_enum"]
@@ -337,6 +445,7 @@ export type Database = {
           cliente_id: string
           coletado_em?: string | null
           criado_em?: string
+          data_coleta_prevista?: string | null
           divergencia_resolvida?: boolean
           embalado_em?: string | null
           entregue_em?: string | null
@@ -349,6 +458,9 @@ export type Database = {
           obs_producao?: string | null
           peso_informado_cliente?: number | null
           peso_kg?: number | null
+          peso_motorista_em?: string | null
+          peso_motorista_kg?: number | null
+          peso_motorista_obs?: string | null
           peso_recebido_producao?: number | null
           pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
@@ -364,6 +476,7 @@ export type Database = {
           cliente_id?: string
           coletado_em?: string | null
           criado_em?: string
+          data_coleta_prevista?: string | null
           divergencia_resolvida?: boolean
           embalado_em?: string | null
           entregue_em?: string | null
@@ -376,6 +489,9 @@ export type Database = {
           obs_producao?: string | null
           peso_informado_cliente?: number | null
           peso_kg?: number | null
+          peso_motorista_em?: string | null
+          peso_motorista_kg?: number | null
+          peso_motorista_obs?: string | null
           peso_recebido_producao?: number | null
           pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
@@ -409,28 +525,34 @@ export type Database = {
           ativo: boolean
           criado_em: string
           dias_semana: string[] | null
+          horario_corte: string | null
           id: string
           motorista_id: string | null
           nome: string
           observacoes: string | null
+          periodo: string | null
         }
         Insert: {
           ativo?: boolean
           criado_em?: string
           dias_semana?: string[] | null
+          horario_corte?: string | null
           id?: string
           motorista_id?: string | null
           nome: string
           observacoes?: string | null
+          periodo?: string | null
         }
         Update: {
           ativo?: boolean
           criado_em?: string
           dias_semana?: string[] | null
+          horario_corte?: string | null
           id?: string
           motorista_id?: string | null
           nome?: string
           observacoes?: string | null
+          periodo?: string | null
         }
         Relationships: [
           {
