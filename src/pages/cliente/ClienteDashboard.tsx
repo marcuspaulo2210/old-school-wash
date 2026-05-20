@@ -543,6 +543,16 @@ const ClienteDashboard = () => {
             <textarea className="field-input min-h-[60px] resize-none" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Descrição das roupas, urgência, etc." />
           </div>
 
+          {rotaInfo && (
+            <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: "rgba(52,201,122,0.10)", border: "1px solid rgba(52,201,122,0.3)" }}>
+              <Calendar className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "#34c97a" }} />
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sua coleta está prevista para</p>
+                <p className="text-lg font-extrabold capitalize mt-0.5" style={{ color: "#34c97a" }}>{formatDataColeta(dataColeta)}</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
               className="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all"
