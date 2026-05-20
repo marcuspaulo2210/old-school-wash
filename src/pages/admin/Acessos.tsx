@@ -18,6 +18,13 @@ interface Row {
   raw: any;
 }
 
+interface RotaOpt {
+  id: string;
+  nome: string;
+  periodo: string | null;
+  dias_semana: string[] | null;
+}
+
 const tipoMeta: Record<Row["tipo"], { label: string; cls: string }> = {
   clinica: { label: "Clínica", cls: "badge-success" },
   hospital: { label: "Hospital", cls: "badge-purple" },
@@ -57,6 +64,8 @@ const Acessos = () => {
   const [showSenha, setShowSenha] = useState(false);
   // Cliente fields
   const [tipoCliente, setTipoCliente] = useState<"clinica" | "hospital">("clinica");
+  const [rotaId, setRotaId] = useState<string>("");
+  const [rotas, setRotas] = useState<RotaOpt[]>([]);
   // Funcionario fields
   const [perfil, setPerfil] = useState<"admin" | "motorista" | "producao">("motorista");
 
@@ -67,6 +76,7 @@ const Acessos = () => {
   const [editTelefone, setEditTelefone] = useState("");
   const [editTipo, setEditTipo] = useState<"clinica" | "hospital">("clinica");
   const [editPerfil, setEditPerfil] = useState<"admin" | "motorista" | "producao">("motorista");
+  const [editRotaId, setEditRotaId] = useState<string>("");
   const [editSaving, setEditSaving] = useState(false);
 
   // Reset password modal
@@ -78,10 +88,12 @@ const Acessos = () => {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [{ data: cls }, { data: us }] = await Promise.all([
-      supabase.from("clientes").select("id, nome, tipo, email, telefone, ativo, auth_user_id").order("nome"),
+    const [{ data: cls }, { data: us }, { data: rs }] = await Promise.all([
+      supabase.from("clientes").select("id, nome, tipo, email, telefone, ativo, auth_user_id, rota_id").order("nome"),
       supabase.from("usuarios").select("id, nome, email, perfil, ativo, telefone").order("nome"),
+      supabase.from("rotas").select("id, nome, periodo, dias_semana").eq("ativo", true).order("nome"),
     ]);
+    setRotas((rs as any) || []);
 
     const cliRows: Row[] = (cls || []).map((c: any) => ({
       id: c.id,
@@ -127,7 +139,7 @@ const Acessos = () => {
 
   const resetForm = () => {
     setNome(""); setEmail(""); setTelefone(""); setSenha(""); setConfirmar("");
-    setTipoCliente("clinica"); setPerfil("motorista"); setFormErr(""); setShowSenha(false);
+    setTipoCliente("clinica"); setPerfil("motorista"); setFormErr(""); setShowSenha(false); setRotaId("");
   };
 
   const handleCreate = async () => {
@@ -140,6 +152,7 @@ const Acessos = () => {
     setSaving(true);
     try {
       if (novoTipo === "cliente") {
+        if (tipoCliente === "clinica" && !rotaId) { setFormErr("Selecione a rota de coleta da clínica"); setSaving(false); return; }
         const { data, error } = await supabase.functions.invoke("admin-create-cliente", {
           body: {
             nome: nome.trim(),
@@ -148,6 +161,7 @@ const Acessos = () => {
             email: email.trim() || null,
             telefone: telefone.trim() || null,
             ativo: true,
+            rota_id: rotaId || null,
           },
         });
         if (error || data?.error) {
@@ -198,7 +212,10 @@ const Acessos = () => {
     setEditNome(r.nome);
     setEditEmail(r.email || "");
     setEditTelefone(r.telefone || "");
-    if (r.origem === "cliente") setEditTipo(r.tipo as "clinica" | "hospital");
+    if (r.origem === "cliente") {
+      setEditTipo(r.tipo as "clinica" | "hospital");
+      setEditRotaId(r.raw?.rota_id || "");
+    }
     else setEditPerfil(r.tipo as "admin" | "motorista" | "producao");
   };
 
@@ -212,6 +229,7 @@ const Acessos = () => {
           tipo: editTipo as any,
           email: editEmail.trim() || null,
           telefone: editTelefone.trim() || null,
+          rota_id: editRotaId || null,
         } as any).eq("id", editTarget.id);
         if (error) { toast.error(error.message); setEditSaving(false); return; }
       } else {
