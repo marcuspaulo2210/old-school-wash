@@ -41,6 +41,13 @@ interface NewProdItem {
   observacao: string;
 }
 
+interface SaidaItem {
+  tipo_roupa_id: string | null;
+  descricao: string;
+  quantidade: number;
+}
+interface TipoRoupa { id: string; nome: string; }
+
 interface ClienteGroup {
   nome: string;
   tipo: string;
@@ -71,6 +78,8 @@ const ProducaoDashboard = () => {
 
   // Finalize modal
   const [finalizingOrder, setFinalizingOrder] = useState<Pedido | null>(null);
+  const [saidaItems, setSaidaItems] = useState<SaidaItem[]>([]);
+  const [tiposRoupa, setTiposRoupa] = useState<TipoRoupa[]>([]);
 
   // Selected client group
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -85,6 +94,12 @@ const ProducaoDashboard = () => {
   };
 
   useEffect(() => { fetchOrders(); }, []);
+
+  useEffect(() => {
+    supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).then(({ data }) => {
+      setTiposRoupa((data as any) || []);
+    });
+  }, []);
 
   // Group orders by client
   const getGroups = (orderList: Pedido[]): ClienteGroup[] => {
@@ -227,7 +242,22 @@ const ProducaoDashboard = () => {
 
   const handleFinalize = async () => {
     if (!finalizingOrder || !user) return;
+    const validItems = saidaItems.filter(s => (s.descricao.trim() || s.tipo_roupa_id) && s.quantidade > 0);
+    if (validItems.length === 0) {
+      alert("Registre ao menos uma peça de saída antes de liberar o pedido para entrega.");
+      return;
+    }
     setSaving(true);
+
+    await supabase.from("itens_saida").insert(
+      validItems.map(s => ({
+        pedido_id: finalizingOrder.id,
+        tipo_roupa_id: s.tipo_roupa_id || null,
+        descricao_livre: s.tipo_roupa_id ? null : s.descricao.trim(),
+        quantidade: s.quantidade,
+        criado_por: user.id,
+      })) as any
+    );
 
     await supabase.from("pedidos").update({
       status: "pronto_para_entrega" as any,
@@ -238,6 +268,7 @@ const ProducaoDashboard = () => {
 
     const pedido = finalizingOrder.numero_pedido;
     setFinalizingOrder(null);
+    setSaidaItems([]);
     setSaving(false);
     setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
     fetchOrders();
