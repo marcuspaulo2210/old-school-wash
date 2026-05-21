@@ -608,6 +608,34 @@ const MotoristaDashboard = () => {
           <div className="flex justify-between"><span>Status:</span><span className="text-foreground">{confirmation.action}</span></div>
         </ConfirmationModal>
       )}
+
+      {coletaSemPedidoTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !cspSaving && setColetaSemPedidoTarget(null)}>
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-foreground">Coletar sem pedido</h3>
+              <button onClick={() => setColetaSemPedidoTarget(null)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Cliente: <strong className="text-foreground">{coletaSemPedidoTarget.nome}</strong>
+            </p>
+            <p className="text-[11px] text-muted-foreground">Um novo pedido será criado e marcado como coletado.</p>
+            {coletaSemPedidoTarget.tipo_cobranca === "peso" && (
+              <div>
+                <label className="field-label">Peso (kg)</label>
+                <input type="number" step="0.001" className="field-input font-mono" value={cspPeso} onChange={(e) => setCspPeso(e.target.value)} placeholder="Ex: 4.5" />
+              </div>
+            )}
+            <div>
+              <label className="field-label">Observações</label>
+              <textarea className="field-input min-h-[50px] resize-none" value={cspObs} onChange={(e) => setCspObs(e.target.value)} />
+            </div>
+            <button className="btn-primary w-full" onClick={handleColetaSemPedido} disabled={cspSaving}>
+              {cspSaving ? "Criando..." : "Confirmar coleta"}
+            </button>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 };
