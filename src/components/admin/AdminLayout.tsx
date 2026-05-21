@@ -14,6 +14,7 @@ import {
   LogOut,
   Menu,
   X,
+  TrendingUp,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -46,6 +47,7 @@ const menuCategories = [
     items: [
       { label: "Preços", path: "/admin/precos", icon: DollarSign },
       { label: "Relatórios", path: "/admin/relatorios", icon: BarChart3 },
+      { label: "Análise Mensal", path: "/admin/analise", icon: TrendingUp },
     ],
   },
 ];
