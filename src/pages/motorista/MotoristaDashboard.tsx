@@ -6,7 +6,7 @@ import AppLayout from "@/components/AppLayout";
 import OrderCard from "@/components/OrderCard";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import StatusBadge from "@/components/StatusBadge";
-import { MapPin, MessageSquare, Plus, X, Package, Truck, Scale } from "lucide-react";
+import { MapPin, MessageSquare, Plus, X, Package, Truck, Scale, Route, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -38,6 +38,15 @@ interface SolicitacaoCliente {
   criado_em: string;
 }
 
+interface RouteCliente {
+  id: string;
+  nome: string;
+  tipo: string;
+  endereco: string | null;
+  tipo_cobranca: string;
+  ja_coletou_hoje: boolean;
+}
+
 const MotoristaDashboard = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Pedido[]>([]);
@@ -63,6 +72,13 @@ const MotoristaDashboard = () => {
   const [pesoValor, setPesoValor] = useState("");
   const [pesoObs, setPesoObs] = useState("");
   const [pesoSaving, setPesoSaving] = useState(false);
+
+  // Rota do dia
+  const [routeClients, setRouteClients] = useState<RouteCliente[]>([]);
+  const [coletaSemPedidoTarget, setColetaSemPedidoTarget] = useState<RouteCliente | null>(null);
+  const [cspPeso, setCspPeso] = useState("");
+  const [cspObs, setCspObs] = useState("");
+  const [cspSaving, setCspSaving] = useState(false);
 
   const handleSalvarPeso = async () => {
     if (!user || !pesoTarget) return;
@@ -136,11 +152,81 @@ const MotoristaDashboard = () => {
     setSolicitacoes((data as any) || []);
   };
 
+  const fetchRouteOfDay = async () => {
+    if (!user) return;
+    // Find clientes assigned to a route owned by this driver
+    const { data: rotas } = await supabase.from("rotas").select("id").eq("motorista_id", user.id).eq("ativo", true);
+    const rotaIds = (rotas || []).map((r: any) => r.id);
+    let clientesData: any[] = [];
+    if (rotaIds.length > 0) {
+      const { data: cls } = await supabase
+        .from("clientes")
+        .select("id, nome, tipo, endereco, tipo_cobranca")
+        .in("rota_id", rotaIds)
+        .eq("ativo", true);
+      clientesData = cls || [];
+    }
+    // Check who already had a pedido created today
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const { data: peds } = await supabase
+      .from("pedidos")
+      .select("cliente_id")
+      .gte("criado_em", today.toISOString());
+    const coletadosHoje = new Set((peds || []).map((p: any) => p.cliente_id));
+    setRouteClients(clientesData.map(c => ({ ...c, ja_coletou_hoje: coletadosHoje.has(c.id) })));
+  };
+
   useEffect(() => {
     fetchOrders();
     fetchDeliveryOrders();
     fetchSolicitacoes();
+    fetchRouteOfDay();
   }, [user]);
+
+  const handleColetaSemPedido = async () => {
+    if (!user || !coletaSemPedidoTarget) return;
+    setCspSaving(true);
+    const peso = cspPeso ? parseFloat(cspPeso) : null;
+    const isPeso = coletaSemPedidoTarget.tipo_cobranca === "peso";
+    const { data: novo, error } = await supabase.from("pedidos").insert({
+      cliente_id: coletaSemPedidoTarget.id,
+      motorista_id: user.id,
+      status: "aguardando_coleta",
+      tipo_cobranca: coletaSemPedidoTarget.tipo_cobranca || "peca",
+      quem_contou: "lavanderia",
+      obs_motorista: cspObs || null,
+      peso_motorista_kg: isPeso ? peso : null,
+      peso_motorista_em: peso ? new Date().toISOString() : null,
+      data_coleta_prevista: new Date().toISOString().slice(0, 10),
+    } as any).select("id, numero_pedido").single();
+
+    if (error || !novo) {
+      toast.error("Não foi possível criar o pedido: " + (error?.message || ""));
+      setCspSaving(false);
+      return;
+    }
+    // Already collected — move directly to coletado
+    await supabase.from("pedidos").update({
+      status: "coletado" as any,
+      coletado_em: new Date().toISOString(),
+    } as any).eq("id", (novo as any).id);
+    await registrarMudancaStatus((novo as any).id, "aguardando_coleta", "coletado", user.id, "Coleta sem pedido prévio");
+
+    if (peso) {
+      await supabase.from("lancamentos_peso").insert({
+        pedido_id: (novo as any).id,
+        cliente_id: coletaSemPedidoTarget.id,
+        motorista_id: user.id,
+        peso_kg: peso,
+        observacao: cspObs || "Coleta sem pedido",
+      } as any);
+    }
+    toast.success(`Pedido ${(novo as any).numero_pedido} criado!`);
+    setColetaSemPedidoTarget(null);
+    setCspPeso(""); setCspObs(""); setCspSaving(false);
+    fetchOrders();
+    fetchRouteOfDay();
+  };
 
   const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
@@ -323,6 +409,10 @@ const MotoristaDashboard = () => {
       {/* Tabs: Coletas / Entregas */}
       <Tabs defaultValue="coletas" className="w-full">
         <TabsList className="w-full mb-3">
+          <TabsTrigger value="rota" className="flex-1 gap-1">
+            <Route className="w-4 h-4" />
+            Rota ({routeClients.length})
+          </TabsTrigger>
           <TabsTrigger value="coletas" className="flex-1 gap-1">
             <Package className="w-4 h-4" />
             Coletas ({orders.filter((o) => o.status === "aguardando_coleta").length})
@@ -332,6 +422,47 @@ const MotoristaDashboard = () => {
             Entregas ({deliveryOrders.length})
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="rota">
+          {routeClients.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">🗺️</div><p className="empty-state-text">Nenhum cliente atribuído à sua rota</p></div>
+          ) : (
+            <div className="space-y-2">
+              {routeClients.map(c => {
+                const badge = tipoBadge(c.tipo);
+                return (
+                  <div key={c.id} className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card p-4 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded" style={{ background: badge.bg, color: badge.color }}>
+                          {badge.label}
+                        </span>
+                        {c.ja_coletou_hoje && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded" style={{ background: "rgba(52,201,122,0.12)", color: "#34c97a" }}>
+                            <CheckCircle2 className="w-3 h-3" /> coletado hoje
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-bold text-foreground truncate">{c.nome}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 truncate">
+                        <MapPin className="w-3 h-3 shrink-0" /> {c.endereco || "Endereço não informado"}
+                      </p>
+                    </div>
+                    {!c.ja_coletou_hoje && (
+                      <button
+                        className="text-[11px] font-bold px-3 py-2 rounded-lg shrink-0"
+                        style={{ background: "rgba(240,160,32,0.15)", color: "#f0a020" }}
+                        onClick={() => { setColetaSemPedidoTarget(c); setCspPeso(""); setCspObs(""); }}
+                      >
+                        Coletar sem pedido
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="coletas">
           {orders.length === 0 ? (
