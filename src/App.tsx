@@ -17,6 +17,7 @@ import Rotas from "./pages/admin/Rotas";
 import Precos from "./pages/admin/Precos";
 import Relatorios from "./pages/admin/Relatorios";
 import Divergencias from "./pages/admin/Divergencias";
+import Analise from "./pages/admin/Analise";
 import ClienteDashboard from "./pages/cliente/ClienteDashboard";
 import MotoristaDashboard from "./pages/motorista/MotoristaDashboard";
 import ProducaoDashboard from "./pages/producao/ProducaoDashboard";
@@ -53,6 +54,7 @@ const AppRoutes = () => (
     <Route path="/admin/precos" element={<ProtectedRoute allowedRoles={["admin"]}><Precos /></ProtectedRoute>} />
     <Route path="/admin/relatorios" element={<ProtectedRoute allowedRoles={["admin"]}><Relatorios /></ProtectedRoute>} />
     <Route path="/admin/divergencias" element={<ProtectedRoute allowedRoles={["admin"]}><Divergencias /></ProtectedRoute>} />
+    <Route path="/admin/analise" element={<ProtectedRoute allowedRoles={["admin"]}><Analise /></ProtectedRoute>} />
 
     {/* Cliente */}
     <Route path="/cliente" element={<ProtectedRoute allowedRoles={["cliente", "admin"]}><ClienteDashboard /></ProtectedRoute>} />

@@ -41,6 +41,13 @@ interface NewProdItem {
   observacao: string;
 }
 
+interface SaidaItem {
+  tipo_roupa_id: string | null;
+  descricao: string;
+  quantidade: number;
+}
+interface TipoRoupa { id: string; nome: string; }
+
 interface ClienteGroup {
   nome: string;
   tipo: string;
@@ -71,6 +78,8 @@ const ProducaoDashboard = () => {
 
   // Finalize modal
   const [finalizingOrder, setFinalizingOrder] = useState<Pedido | null>(null);
+  const [saidaItems, setSaidaItems] = useState<SaidaItem[]>([]);
+  const [tiposRoupa, setTiposRoupa] = useState<TipoRoupa[]>([]);
 
   // Selected client group
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -85,6 +94,12 @@ const ProducaoDashboard = () => {
   };
 
   useEffect(() => { fetchOrders(); }, []);
+
+  useEffect(() => {
+    supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).then(({ data }) => {
+      setTiposRoupa((data as any) || []);
+    });
+  }, []);
 
   // Group orders by client
   const getGroups = (orderList: Pedido[]): ClienteGroup[] => {
@@ -227,7 +242,22 @@ const ProducaoDashboard = () => {
 
   const handleFinalize = async () => {
     if (!finalizingOrder || !user) return;
+    const validItems = saidaItems.filter(s => (s.descricao.trim() || s.tipo_roupa_id) && s.quantidade > 0);
+    if (validItems.length === 0) {
+      alert("Registre ao menos uma peça de saída antes de liberar o pedido para entrega.");
+      return;
+    }
     setSaving(true);
+
+    await supabase.from("itens_saida").insert(
+      validItems.map(s => ({
+        pedido_id: finalizingOrder.id,
+        tipo_roupa_id: s.tipo_roupa_id || null,
+        descricao_livre: s.tipo_roupa_id ? null : s.descricao.trim(),
+        quantidade: s.quantidade,
+        criado_por: user.id,
+      })) as any
+    );
 
     await supabase.from("pedidos").update({
       status: "pronto_para_entrega" as any,
@@ -238,6 +268,7 @@ const ProducaoDashboard = () => {
 
     const pedido = finalizingOrder.numero_pedido;
     setFinalizingOrder(null);
+    setSaidaItems([]);
     setSaving(false);
     setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
     fetchOrders();
@@ -574,24 +605,69 @@ const ProducaoDashboard = () => {
 
       {/* Finalize confirmation modal */}
       {finalizingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4 animate-fade-in">
-            <h3 className="text-sm font-bold text-foreground">Finalizar e liberar para entrega</h3>
-            <p className="text-sm text-muted-foreground">
-              Confirmar finalização do pedido{" "}
-              <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>{finalizingOrder.numero_pedido}</span>{" "}
-              para <strong className="text-foreground">{finalizingOrder.clientes?.nome}</strong>?
-            </p>
-            <p className="text-xs text-muted-foreground">O pedido será liberado para entrega pelo motorista.</p>
-            <div className="flex gap-2">
-              <button className="btn-ghost flex-1" onClick={() => setFinalizingOrder(null)}>Cancelar</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !saving && setFinalizingOrder(null)}>
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Finalizar e liberar para entrega</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Pedido <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>{finalizingOrder.numero_pedido}</span> — <strong className="text-foreground">{finalizingOrder.clientes?.nome}</strong>
+              </p>
+            </div>
+
+            <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: "rgba(240,160,32,0.10)", color: "#f0a020" }}>
+              ⚠ Registre as peças de saída antes de liberar para entrega.
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase">Peças de saída</p>
+              {saidaItems.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Nenhuma peça adicionada ainda.</p>
+              )}
+              {saidaItems.map((s, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <select
+                    className="field-select flex-1 text-xs py-2"
+                    value={s.tipo_roupa_id || ""}
+                    onChange={(e) => setSaidaItems(prev => prev.map((p, i) => i === idx ? { ...p, tipo_roupa_id: e.target.value || null, descricao: "" } : p))}
+                  >
+                    <option value="">— Outro (descrever) —</option>
+                    {tiposRoupa.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
+                  {!s.tipo_roupa_id && (
+                    <input
+                      className="field-input flex-1 text-xs py-2"
+                      placeholder="Descrição"
+                      value={s.descricao}
+                      onChange={(e) => setSaidaItems(prev => prev.map((p, i) => i === idx ? { ...p, descricao: e.target.value } : p))}
+                    />
+                  )}
+                  <input
+                    type="number"
+                    min={1}
+                    className="field-input w-16 text-center font-mono text-xs py-2"
+                    value={s.quantidade}
+                    onChange={(e) => setSaidaItems(prev => prev.map((p, i) => i === idx ? { ...p, quantidade: parseInt(e.target.value) || 0 } : p))}
+                  />
+                  <button onClick={() => setSaidaItems(prev => prev.filter((_, i) => i !== idx))} className="p-1.5" style={{ color: "#e05050" }}><X className="w-4 h-4" /></button>
+                </div>
+              ))}
               <button
-                className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white flex items-center justify-center gap-2"
+                className="btn-ghost text-xs w-full"
+                onClick={() => setSaidaItems(prev => [...prev, { tipo_roupa_id: null, descricao: "", quantidade: 1 }])}
+              >
+                <Plus className="w-3.5 h-3.5" /> Adicionar peça de saída
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" onClick={() => { setFinalizingOrder(null); setSaidaItems([]); }} disabled={saving}>Cancelar</button>
+              <button
+                className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: "#34c97a" }}
                 onClick={handleFinalize}
                 disabled={saving}
               >
-                {saving ? "Finalizando..." : "✓ Confirmar"}
+                {saving ? "Finalizando..." : "✓ Liberar para entrega"}
               </button>
             </div>
           </div>
