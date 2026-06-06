@@ -9,12 +9,10 @@ import {
   ListChecks,
   Users,
   MapPin,
-  DollarSign,
-  BarChart3,
   LogOut,
   Menu,
   X,
-  TrendingUp,
+  CalendarDays,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -31,6 +29,7 @@ const menuCategories = [
       { label: "Dashboard", path: "/admin", icon: LayoutGrid },
       { label: "Pedidos", path: "/admin/pedidos", icon: ClipboardList },
       { label: "Divergências", path: "/admin/divergencias", icon: AlertTriangle },
+      { label: "Análise", path: "/admin/analise", icon: CalendarDays },
     ],
   },
   {
@@ -40,14 +39,6 @@ const menuCategories = [
       { label: "Tipos de Roupa", path: "/admin/roupas", icon: Shirt },
       { label: "Serviços", path: "/admin/servicos", icon: ListChecks },
       { label: "Rotas", path: "/admin/rotas", icon: MapPin },
-    ],
-  },
-  {
-    label: "Financeiro",
-    items: [
-      { label: "Preços", path: "/admin/precos", icon: DollarSign },
-      { label: "Relatórios", path: "/admin/relatorios", icon: BarChart3 },
-      { label: "Análise Mensal", path: "/admin/analise", icon: TrendingUp },
     ],
   },
 ];
