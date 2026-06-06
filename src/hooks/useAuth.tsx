@@ -63,8 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         nome: cliente.nome,
         email: cliente.email || "",
         cliente_id: cliente.id,
-        // If either source says first access is done, treat as done
-        primeiro_acesso: cliente.primeiro_acesso && (usuario?.primeiro_acesso ?? true),
+        primeiro_acesso: false,
       });
       setIsProfileLoaded(true);
       return;
@@ -77,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         nome: usuario.nome,
         email: usuario.email,
         cliente_id: usuario.cliente_id,
-        primeiro_acesso: usuario.primeiro_acesso,
+        primeiro_acesso: false,
         username: usuario.username,
       });
       setLoginType(perfil === "cliente" ? "cliente" : "funcionario");
