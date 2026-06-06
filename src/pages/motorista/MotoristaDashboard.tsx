@@ -322,11 +322,15 @@ const MotoristaDashboard = () => {
               </span>
               <span className="font-mono text-xs font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</span>
             </div>
-            <p className="text-sm font-bold text-foreground truncate">{order.clientes?.nome || "—"}</p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate flex items-center gap-1">
-              <MapPin className="w-3 h-3 shrink-0" />
-              {order.clientes?.endereco || "Endereço não informado"}
+            <p className="text-sm font-bold text-foreground truncate">
+              {order.clientes?.nome?.trim() || order.numero_pedido}
             </p>
+            {order.clientes?.endereco && (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+                <MapPin className="w-3 h-3 shrink-0" />
+                {order.clientes.endereco}
+              </p>
+            )}
           </div>
           <StatusBadge status={order.status} />
         </div>
@@ -494,8 +498,14 @@ const MotoristaDashboard = () => {
                   })()}
                   <span className="font-mono text-sm font-bold" style={{ color: "#5b8df6" }}>{selectedOrder.numero_pedido}</span>
                 </div>
-                <h3 className="text-base font-bold text-foreground">{selectedOrder.clientes?.nome}</h3>
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> {selectedOrder.clientes?.endereco || "—"}</p>
+                <h3 className="text-base font-bold text-foreground">
+                  {selectedOrder.clientes?.nome?.trim() || selectedOrder.numero_pedido}
+                </h3>
+                {selectedOrder.clientes?.endereco && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <MapPin className="w-3 h-3" /> {selectedOrder.clientes.endereco}
+                  </p>
+                )}
               </div>
               <button className="text-muted-foreground hover:text-foreground text-lg" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
