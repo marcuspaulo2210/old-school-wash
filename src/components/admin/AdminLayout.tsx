@@ -9,12 +9,10 @@ import {
   ListChecks,
   Users,
   MapPin,
-  DollarSign,
-  BarChart3,
   LogOut,
   Menu,
   X,
-  TrendingUp,
+  CalendarDays,
 } from "lucide-react";
 
 interface AdminLayoutProps {
