@@ -25,6 +25,9 @@ interface Pedido {
   pronto_em: string | null;
   saiu_em: string | null;
   entregue_em: string | null;
+  peso_informado_cliente: number | null;
+  peso_kg: number | null;
+  peso_motorista_kg: number | null;
   clientes: { tipo: string } | null;
 }
 
@@ -80,6 +83,7 @@ const ClienteDashboard = () => {
   const [clienteInfo, setClienteInfo] = useState<{ tipo: string } | null>(null);
   const [rotaInfo, setRotaInfo] = useState<RotaInfo | null>(null);
   const [itensSaidaMap, setItensSaidaMap] = useState<Record<string, { nome: string; quantidade: number }[]>>({});
+  const [itensPedidoMap, setItensPedidoMap] = useState<Record<string, { nome: string; quantidade: number }[]>>({});
   const [confirmation, setConfirmation] = useState<{ pedido: string } | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -149,11 +153,25 @@ const ClienteDashboard = () => {
   const refreshOrders = async () => {
     if (!profile?.cliente_id) return;
     const { data } = await supabase.from("pedidos")
-      .select("id, numero_pedido, status, criado_em, tipo_cobranca, rascunho, coletado_em, embalado_em, pronto_em, saiu_em, entregue_em, clientes(tipo)")
+      .select("id, numero_pedido, status, criado_em, tipo_cobranca, rascunho, coletado_em, embalado_em, pronto_em, saiu_em, entregue_em, peso_informado_cliente, peso_kg, peso_motorista_kg, clientes(tipo)")
       .eq("cliente_id", profile.cliente_id)
       .order("criado_em", { ascending: false });
     setOrders((data as unknown as Pedido[]) || []);
+    const allIds = ((data as any) || []).map((o: any) => o.id);
     const ids = ((data as any) || []).filter((o: any) => ["pronto_para_entrega","saiu_para_entrega","entregue"].includes(o.status)).map((o: any) => o.id);
+    if (allIds.length > 0) {
+      const { data: itens } = await supabase
+        .from("itens_pedido")
+        .select("pedido_id, quantidade_original, descricao_livre, tipos_roupa(nome)")
+        .in("pedido_id", allIds);
+      const mp: Record<string, { nome: string; quantidade: number }[]> = {};
+      (itens as any[] || []).forEach((it) => {
+        const arr = mp[it.pedido_id] || [];
+        arr.push({ nome: it.tipos_roupa?.nome || it.descricao_livre || "Item", quantidade: it.quantidade_original });
+        mp[it.pedido_id] = arr;
+      });
+      setItensPedidoMap(mp);
+    }
     if (ids.length > 0) {
       const { data: saidas } = await supabase
         .from("itens_saida")
@@ -619,6 +637,71 @@ const ClienteDashboard = () => {
                         steps={buildSteps(order)}
                         currentIndex={currentStepIndex(order.status)}
                       />
+                      {/* O que você enviou */}
+                      {order.tipo_cobranca === "peca" && itensPedidoMap[order.id] && itensPedidoMap[order.id].length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">O que você enviou</p>
+                          <div className="space-y-1 rounded-lg p-3" style={{ background: "rgba(91,141,246,0.08)" }}>
+                            {itensPedidoMap[order.id].map((it, i) => (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className="text-foreground">{it.nome}</span>
+                                <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>{it.quantidade}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {order.tipo_cobranca === "peso" && (order.peso_informado_cliente || order.peso_kg) && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">O que você enviou</p>
+                          <div className="flex justify-between text-xs rounded-lg p-3" style={{ background: "rgba(91,141,246,0.08)" }}>
+                            <span className="text-foreground">Peso informado</span>
+                            <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>
+                              {(Number(order.peso_informado_cliente ?? order.peso_kg)).toFixed(3)} kg
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Comparativo enviado x devolvido */}
+                      {(() => {
+                        const showCompare = ["pronto_para_entrega", "saiu_para_entrega", "entregue"].includes(order.status);
+                        if (!showCompare) return null;
+                        if (order.tipo_cobranca === "peca") {
+                          const enviados = (itensPedidoMap[order.id] || []).reduce((s, it) => s + it.quantidade, 0);
+                          const devolvidos = (itensSaidaMap[order.id] || []).reduce((s, it) => s + it.quantidade, 0);
+                          if (enviados === 0 && devolvidos === 0) return null;
+                          const ok = enviados === devolvidos;
+                          return (
+                            <div className="rounded-lg p-3 text-xs" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-muted-foreground">Enviado: <span className="font-mono font-bold text-foreground">{enviados}</span> peças</span>
+                                <span className="text-muted-foreground">Devolvido: <span className="font-mono font-bold text-foreground">{devolvidos}</span> peças</span>
+                              </div>
+                              <p className="font-semibold mt-1" style={{ color: ok ? "#34c97a" : "#f0a020" }}>
+                                {ok ? "Conferência ok ✓" : "Verifique com a lavanderia"}
+                              </p>
+                            </div>
+                          );
+                        }
+                        if (order.tipo_cobranca === "peso" && order.peso_motorista_kg) {
+                          const enviado = Number(order.peso_informado_cliente ?? order.peso_kg ?? 0);
+                          const coletado = Number(order.peso_motorista_kg);
+                          const ok = Math.abs(enviado - coletado) < 0.01;
+                          return (
+                            <div className="rounded-lg p-3 text-xs" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-muted-foreground">Enviado: <span className="font-mono font-bold text-foreground">{enviado.toFixed(3)} kg</span></span>
+                                <span className="text-muted-foreground">Peso coletado: <span className="font-mono font-bold text-foreground">{coletado.toFixed(3)} kg</span></span>
+                              </div>
+                              <p className="font-semibold mt-1" style={{ color: ok ? "#34c97a" : "#f0a020" }}>
+                                {ok ? "Conferência ok ✓" : "Verifique com a lavanderia"}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {itensSaidaMap[order.id] && itensSaidaMap[order.id].length > 0 && (
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Peças que serão devolvidas</p>
