@@ -32,6 +32,7 @@ interface Pedido {
   peso_recebido_producao: number | null;
   tipo_registro_producao: string | null;
   status_entrada: string;
+  cliente_id: string;
   clientes: { nome: string; tipo: string } | null;
 }
 
@@ -87,10 +88,22 @@ const ProducaoDashboard = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, clientes(nome, tipo)")
+      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
       .in("status", ["coletado", "em_producao", "embalado"])
       .order("criado_em", { ascending: true });
-    setOrders((data as unknown as Pedido[]) || []);
+    const pedidos = (data as unknown as Pedido[]) || [];
+    const missing = Array.from(new Set(pedidos.filter(p => !p.clientes && p.cliente_id).map(p => p.cliente_id)));
+    if (missing.length > 0) {
+      const { data: cls } = await supabase.from("clientes").select("id, nome, tipo").in("id", missing);
+      const byId = new Map((cls || []).map((c: any) => [c.id, c]));
+      for (const p of pedidos) {
+        if (!p.clientes && p.cliente_id) {
+          const c = byId.get(p.cliente_id);
+          if (c) p.clientes = { nome: c.nome, tipo: c.tipo };
+        }
+      }
+    }
+    setOrders(pedidos);
   };
 
   useEffect(() => { fetchOrders(); }, []);
