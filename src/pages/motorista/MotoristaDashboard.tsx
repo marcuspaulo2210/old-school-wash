@@ -110,13 +110,13 @@ const MotoristaDashboard = () => {
     if (!user) return;
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, peso_kg, peso_informado_cliente, clientes(nome, endereco, tipo)")
+      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, peso_kg, peso_informado_cliente, cliente_id, clientes(nome, endereco, tipo)")
       .eq("motorista_id", user.id)
       .in("status", ["aguardando_coleta", "coletado"])
       .order("criado_em", { ascending: true });
     
     const pedidos = (data as unknown as Pedido[]) || [];
-    
+    await hydrateClientes(pedidos);
     // Fetch item counts for each order
     for (const p of pedidos) {
       const { count } = await supabase.from("itens_pedido").select("*", { count: "exact", head: true }).eq("pedido_id", p.id);
@@ -129,11 +129,12 @@ const MotoristaDashboard = () => {
     if (!user) return;
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, peso_kg, peso_informado_cliente, clientes(nome, endereco, tipo)")
+      .select("id, numero_pedido, status, obs_cliente, tipo_cobranca, quem_contou, criado_em, peso_kg, peso_informado_cliente, cliente_id, clientes(nome, endereco, tipo)")
       .in("status", ["pronto_para_entrega", "saiu_para_entrega"])
       .order("criado_em", { ascending: true });
 
     const pedidos = (data as unknown as Pedido[]) || [];
+    await hydrateClientes(pedidos);
     for (const p of pedidos) {
       const { count } = await supabase.from("itens_pedido").select("*", { count: "exact", head: true }).eq("pedido_id", p.id);
       p.item_count = count || 0;
