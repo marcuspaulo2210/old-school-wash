@@ -1,0 +1,1 @@
+CREATE POLICY "Producao ve clientes" ON public.clientes FOR SELECT TO authenticated USING (tem_perfil(auth.uid(), 'producao'::perfil_usuario));
