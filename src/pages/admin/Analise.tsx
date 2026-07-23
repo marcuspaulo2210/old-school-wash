@@ -17,7 +17,6 @@ interface UsuarioLite { id: string; nome: string; }
 interface PedidoLite {
   id: string; numero_pedido: string; status: string; criado_em: string; cliente_id: string;
   peso_kg: number | null; peso_informado_cliente: number | null; peso_motorista_kg: number | null; peso_recebido_producao: number | null;
-  valor_total: number | null;
 }
 
 function monthBounds(ym: string) {
@@ -44,7 +43,7 @@ const Analise = () => {
     const { start, end } = monthBounds(mes);
     const [{ data: lps }, { data: peds }, { data: cls }, { data: us }] = await Promise.all([
       supabase.from("lancamentos_peso").select("*").gte("criado_em", start).lt("criado_em", end),
-      supabase.from("pedidos").select("id, numero_pedido, status, criado_em, cliente_id, peso_kg, peso_informado_cliente, peso_motorista_kg, peso_recebido_producao, valor_total")
+      supabase.from("pedidos").select("id, numero_pedido, status, criado_em, cliente_id, peso_kg, peso_informado_cliente, peso_motorista_kg, peso_recebido_producao")
         .gte("criado_em", start).lt("criado_em", end),
       supabase.from("clientes").select("id, nome, tipo, preco_kg, preco_peca, tipo_cobranca"),
       supabase.from("usuarios").select("id, nome").eq("perfil", "motorista"),
@@ -68,21 +67,19 @@ const Analise = () => {
   const totalPesoMotorista = filteredLancamentos.reduce((s, l) => s + Number(l.peso_kg || 0), 0);
   const totalPedidos = filteredPedidos.length;
   const totalDivergencias = filteredPedidos.filter(p => p.status === "divergencia").length;
-  const totalFaturamento = filteredPedidos.reduce((s, p) => s + Number(p.valor_total || 0), 0);
   const clientesAtivosCount = new Set(filteredPedidos.map(p => p.cliente_id)).size;
 
   // Per-client aggregation
   const perClient = useMemo(() => {
-    const map: Record<string, { cliente: ClienteLite | undefined; pedidos: number; pesoMot: number; pesoProd: number; faturamento: number; }> = {};
+    const map: Record<string, { cliente: ClienteLite | undefined; pedidos: number; pesoMot: number; pesoProd: number; }> = {};
     for (const p of filteredPedidos) {
       const k = p.cliente_id;
-      if (!map[k]) map[k] = { cliente: clienteMap[k], pedidos: 0, pesoMot: 0, pesoProd: 0, faturamento: 0 };
+      if (!map[k]) map[k] = { cliente: clienteMap[k], pedidos: 0, pesoMot: 0, pesoProd: 0 };
       map[k].pedidos += 1;
       map[k].pesoMot += Number(p.peso_motorista_kg || 0);
       map[k].pesoProd += Number(p.peso_recebido_producao || 0);
-      map[k].faturamento += Number(p.valor_total || 0);
     }
-    return Object.entries(map).map(([id, v]) => ({ id, ...v })).sort((a, b) => b.faturamento - a.faturamento);
+    return Object.entries(map).map(([id, v]) => ({ id, ...v })).sort((a, b) => b.pedidos - a.pedidos);
   }, [filteredPedidos, clienteMap]);
 
   const exportCsv = () => {
@@ -117,7 +114,6 @@ const Analise = () => {
     { label: "Pedidos", value: totalPedidos, icon: TrendingUp, color: "#2dbfa0" },
     { label: "Peso lançado (motorista)", value: `${totalPesoMotorista.toFixed(2)} kg`, icon: Scale, color: "#f0a020" },
     { label: "Divergências", value: totalDivergencias, icon: AlertTriangle, color: "#e05050" },
-    { label: "Faturamento estimado", value: `R$ ${totalFaturamento.toFixed(2)}`, icon: TrendingUp, color: "#9b72f4" },
   ];
 
   return (
@@ -139,7 +135,7 @@ const Analise = () => {
         <button className="btn-primary" onClick={exportCsv}><Download className="w-4 h-4" /> Exportar CSV</button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {cards.map(c => (
           <div key={c.label} className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card p-4">
             <div className="flex items-center justify-between mb-2">
@@ -164,12 +160,11 @@ const Analise = () => {
                 <th className="text-center">Pedidos</th>
                 <th className="text-right">Peso motorista</th>
                 <th className="text-right">Peso produção</th>
-                <th className="text-right">Faturamento</th>
               </tr>
             </thead>
             <tbody>
               {perClient.length === 0 && (
-                <tr><td colSpan={6} className="text-center text-muted-foreground py-6">Nenhum dado neste mês</td></tr>
+                <tr><td colSpan={5} className="text-center text-muted-foreground py-6">Nenhum dado neste mês</td></tr>
               )}
               {perClient.map(r => (
                 <tr key={r.id}>
@@ -178,7 +173,6 @@ const Analise = () => {
                   <td className="text-center font-mono">{r.pedidos}</td>
                   <td className="text-right font-mono">{r.pesoMot.toFixed(2)} kg</td>
                   <td className="text-right font-mono">{r.pesoProd.toFixed(2)} kg</td>
-                  <td className="text-right font-mono font-bold" style={{ color: "#2dbfa0" }}>R$ {r.faturamento.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
