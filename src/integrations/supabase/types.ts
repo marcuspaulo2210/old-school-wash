@@ -501,6 +501,8 @@ export type Database = {
           pronto_em: string | null
           quem_contou: Database["public"]["Enums"]["quem_contou_enum"]
           rascunho: boolean
+          saida_em: string | null
+          saida_registrada: boolean | null
           saiu_em: string | null
           status: Database["public"]["Enums"]["status_pedido"]
           status_entrada: string
@@ -532,6 +534,8 @@ export type Database = {
           pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
           rascunho?: boolean
+          saida_em?: string | null
+          saida_registrada?: boolean | null
           saiu_em?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
           status_entrada?: string
@@ -563,6 +567,8 @@ export type Database = {
           pronto_em?: string | null
           quem_contou?: Database["public"]["Enums"]["quem_contou_enum"]
           rascunho?: boolean
+          saida_em?: string | null
+          saida_registrada?: boolean | null
           saiu_em?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
           status_entrada?: string

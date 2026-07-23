@@ -85,7 +85,7 @@ const ProducaoDashboard = () => {
       .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
       .in("status", ["coletado", "em_producao", "embalado"])
       .order("criado_em", { ascending: true });
-    const pedidos = (data as unknown as Pedido[]) || [];
+    const pedidos = ((data as unknown as Pedido[]) || []).filter(p => !["pronto_para_entrega", "saiu_para_entrega", "entregue"].includes(p.status));
     const missing = Array.from(new Set(pedidos.filter(p => !p.clientes && p.cliente_id).map(p => p.cliente_id)));
     if (missing.length > 0) {
       const { data: cls } = await supabase.from("clientes").select("id, nome, tipo").in("id", missing);
@@ -251,12 +251,18 @@ const ProducaoDashboard = () => {
     if (!finalizingOrder || !user) return;
     setSaving(true);
 
-    await supabase.from("pedidos").update({
+    const { error: updateError } = await supabase.from("pedidos").update({
       status: "pronto_para_entrega" as any,
       pronto_em: new Date().toISOString(),
       saida_registrada: true,
       saida_em: new Date().toISOString(),
     } as any).eq("id", finalizingOrder.id);
+
+    if (updateError) {
+      setSaving(false);
+      setConfirmation({ pedido: finalizingOrder.numero_pedido, variant: "danger", title: "Erro ao liberar" });
+      return;
+    }
 
     await registrarMudancaStatus(finalizingOrder.id, "embalado", "pronto_para_entrega", user.id, "Finalizado e liberado para entrega");
 
@@ -265,6 +271,7 @@ const ProducaoDashboard = () => {
     setFinalizingOrder(null);
     setSaving(false);
     setOrders(prev => prev.filter(p => p.id !== finalizedId));
+    setTimeout(() => fetchOrders(), 1000);
     setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
   };
 
@@ -635,7 +642,6 @@ const ProducaoDashboard = () => {
           onClose={() => {
             setConfirmation(null);
             setFinalizingOrder(null);
-            fetchOrders();
           }}
         />
       )}
