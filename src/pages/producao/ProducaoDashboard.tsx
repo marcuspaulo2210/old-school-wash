@@ -251,12 +251,18 @@ const ProducaoDashboard = () => {
     if (!finalizingOrder || !user) return;
     setSaving(true);
 
-    await supabase.from("pedidos").update({
+    const { error: updateError } = await supabase.from("pedidos").update({
       status: "pronto_para_entrega" as any,
       pronto_em: new Date().toISOString(),
       saida_registrada: true,
       saida_em: new Date().toISOString(),
     } as any).eq("id", finalizingOrder.id);
+
+    if (updateError) {
+      setSaving(false);
+      setConfirmation({ pedido: finalizingOrder.numero_pedido, variant: "danger", title: "Erro ao liberar" });
+      return;
+    }
 
     await registrarMudancaStatus(finalizingOrder.id, "embalado", "pronto_para_entrega", user.id, "Finalizado e liberado para entrega");
 
