@@ -42,6 +42,7 @@ interface HospitalQty { tipo_roupa_id: string; quantidade: number; }
 interface ClienteFull {
   tipo: string;
   rota_id: string | null;
+  motorista_id?: string | null;
 }
 interface RotaInfo extends RotaLite {
   id: string;
@@ -107,18 +108,27 @@ const ClienteDashboard = () => {
       .then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
 
     if (user && profile?.cliente_id) {
-      supabase.from("clientes").select("tipo, rota_id").eq("id", profile.cliente_id).single()
+      supabase.from("clientes").select("tipo, rota_id, motorista_id").eq("id", profile.cliente_id).single()
         .then(async ({ data }) => {
           if (!data) return;
           const c = data as unknown as ClienteFull;
           setClienteInfo({ tipo: c.tipo });
+          // Fallback: if route has no driver (or no route), use cliente.motorista_id
+          const clienteFallback = c.motorista_id || null;
           if (c.rota_id) {
             const { data: r } = await supabase
               .from("rotas")
               .select("id, dias_semana, horario_corte, periodo, motorista_id")
               .eq("id", c.rota_id)
               .single();
-            if (r) setRotaInfo(r as any);
+            if (r) {
+              const merged: any = { ...r, motorista_id: (r as any).motorista_id || clienteFallback };
+              setRotaInfo(merged);
+            } else if (clienteFallback) {
+              setRotaInfo({ id: "", dias_semana: null, horario_corte: null, periodo: null, motorista_id: clienteFallback } as any);
+            }
+          } else if (clienteFallback) {
+            setRotaInfo({ id: "", dias_semana: null, horario_corte: null, periodo: null, motorista_id: clienteFallback } as any);
           }
         });
 
