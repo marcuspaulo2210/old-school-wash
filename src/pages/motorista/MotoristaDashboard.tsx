@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { registrarMudancaStatus } from "@/lib/statusHistory";
+import { atualizarSaldo } from "@/lib/saldoRoupas";
 import AppLayout from "@/components/AppLayout";
 import OrderCard from "@/components/OrderCard";
 import ConfirmationModal from "@/components/ConfirmationModal";
@@ -288,6 +289,7 @@ const MotoristaDashboard = () => {
     setConfirming(true);
     await supabase.from("pedidos").update({ status: "entregue" as any, entregue_em: new Date().toISOString() } as any).eq("id", order.id);
     await registrarMudancaStatus(order.id, "saiu_para_entrega", "entregue", user.id, "Entrega confirmada pelo motorista");
+    try { await atualizarSaldo(order.id); } catch (e) { console.error("atualizarSaldo falhou", e); }
     const pedido = order.numero_pedido;
     setSelectedOrder(null);
     setConfirming(false);

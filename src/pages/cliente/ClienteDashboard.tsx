@@ -7,6 +7,7 @@ import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import OrderProgress, { ProgressStep } from "@/components/OrderProgress";
 import OrderTimeline from "@/components/OrderTimeline";
+import ClienteSaldoRoupas from "@/components/ClienteSaldoRoupas";
 import NotificationBell from "@/components/NotificationBell";
 import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { calcDataColeta, formatDataColeta, toIsoDate, RotaLite } from "@/lib/coletaDate";
@@ -356,6 +357,8 @@ const ClienteDashboard = () => {
           />
         </div>
       )}
+
+      {profile?.cliente_id && <ClienteSaldoRoupas clienteId={profile.cliente_id} />}
 
       {!showForm ? (
         <button className="btn-primary w-full btn-lg mb-5" onClick={() => setShowForm(true)}>

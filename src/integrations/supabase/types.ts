@@ -161,6 +161,73 @@ export type Database = {
           },
         ]
       }
+      historico_saldo: {
+        Row: {
+          cliente_id: string
+          criado_em: string
+          descricao: string
+          editado_por: string | null
+          id: string
+          obs: string | null
+          pedido_id: string | null
+          quantidade_devolvida: number
+          quantidade_enviada: number
+          saldo_anterior: number
+          saldo_novo: number
+          tipo: string
+        }
+        Insert: {
+          cliente_id: string
+          criado_em?: string
+          descricao: string
+          editado_por?: string | null
+          id?: string
+          obs?: string | null
+          pedido_id?: string | null
+          quantidade_devolvida?: number
+          quantidade_enviada?: number
+          saldo_anterior?: number
+          saldo_novo?: number
+          tipo?: string
+        }
+        Update: {
+          cliente_id?: string
+          criado_em?: string
+          descricao?: string
+          editado_por?: string | null
+          id?: string
+          obs?: string | null
+          pedido_id?: string | null
+          quantidade_devolvida?: number
+          quantidade_enviada?: number
+          saldo_anterior?: number
+          saldo_novo?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_saldo_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_saldo_editado_por_fkey"
+            columns: ["editado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_saldo_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historico_status: {
         Row: {
           alterado_por: string
@@ -596,6 +663,47 @@ export type Database = {
             columns: ["rota_id"]
             isOneToOne: false
             referencedRelation: "rotas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saldo_roupas: {
+        Row: {
+          cliente_id: string
+          descricao: string
+          id: string
+          obs_admin: string | null
+          saldo: number | null
+          total_devolvido: number
+          total_enviado: number
+          ultima_atualizacao: string
+        }
+        Insert: {
+          cliente_id: string
+          descricao: string
+          id?: string
+          obs_admin?: string | null
+          saldo?: number | null
+          total_devolvido?: number
+          total_enviado?: number
+          ultima_atualizacao?: string
+        }
+        Update: {
+          cliente_id?: string
+          descricao?: string
+          id?: string
+          obs_admin?: string | null
+          saldo?: number | null
+          total_devolvido?: number
+          total_enviado?: number
+          ultima_atualizacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saldo_roupas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
         ]
