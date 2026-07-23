@@ -18,7 +18,7 @@ interface Motorista { id: string; nome: string; }
 interface Cliente { id: string; nome: string; endereco: string | null; }
 interface RotaCliente { id: string; rota_id: string; cliente_id: string; ordem: number; clientes?: { nome: string; endereco: string | null } | null; }
 
-const diasSemana = ["seg", "ter", "qua", "qui", "sex", "sab"];
+const diasSemana = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"];
 
 const Rotas = () => {
   const [rotas, setRotas] = useState<Rota[]>([]);
