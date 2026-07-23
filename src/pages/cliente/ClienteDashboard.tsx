@@ -173,11 +173,11 @@ const ClienteDashboard = () => {
       });
       setItensPedidoMap(mp);
     }
-    if (ids.length > 0) {
+    if (allIds.length > 0) {
       const { data: saidas } = await supabase
         .from("itens_saida")
         .select("pedido_id, quantidade, descricao_livre, tipos_roupa(nome)")
-        .in("pedido_id", ids);
+        .in("pedido_id", allIds);
       const m: Record<string, { nome: string; quantidade: number }[]> = {};
       (saidas as any[] || []).forEach((s) => {
         const arr = m[s.pedido_id] || [];
