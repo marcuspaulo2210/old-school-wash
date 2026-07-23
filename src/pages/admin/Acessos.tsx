@@ -364,7 +364,14 @@ const Acessos = () => {
               const meta = tipoMeta[r.tipo];
               return (
                 <tr key={`${r.origem}-${r.id}`} className="border-b last:border-b-0 hover:bg-secondary/40 transition-colors" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                  <td className="px-4 py-3 font-semibold text-foreground">{r.nome}</td>
+                  <td className="px-4 py-3 font-semibold text-foreground">
+                    <div>{r.nome}</div>
+                    {r.origem === "cliente" && r.raw?.motorista_id && (
+                      <div className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                        Motorista: {motoristas.find((m) => m.id === r.raw.motorista_id)?.nome || "—"}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={meta.cls} style={r.tipo === "admin" ? { background: "hsl(var(--destructive) / 0.15)", color: "hsl(var(--destructive))" } : undefined}>
                       {meta.label}
