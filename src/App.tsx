@@ -14,8 +14,6 @@ import AdminPedidos from "./pages/admin/Pedidos";
 import Acessos from "./pages/admin/Acessos";
 import Servicos from "./pages/admin/Servicos";
 import Rotas from "./pages/admin/Rotas";
-import Precos from "./pages/admin/Precos";
-import Relatorios from "./pages/admin/Relatorios";
 import Divergencias from "./pages/admin/Divergencias";
 import Analise from "./pages/admin/Analise";
 import ClienteDashboard from "./pages/cliente/ClienteDashboard";
@@ -51,8 +49,6 @@ const AppRoutes = () => (
     <Route path="/admin/usuarios" element={<Navigate to="/admin/acessos" replace />} />
     <Route path="/admin/servicos" element={<ProtectedRoute allowedRoles={["admin"]}><Servicos /></ProtectedRoute>} />
     <Route path="/admin/rotas" element={<ProtectedRoute allowedRoles={["admin"]}><Rotas /></ProtectedRoute>} />
-    <Route path="/admin/precos" element={<ProtectedRoute allowedRoles={["admin"]}><Precos /></ProtectedRoute>} />
-    <Route path="/admin/relatorios" element={<ProtectedRoute allowedRoles={["admin"]}><Relatorios /></ProtectedRoute>} />
     <Route path="/admin/divergencias" element={<ProtectedRoute allowedRoles={["admin"]}><Divergencias /></ProtectedRoute>} />
     <Route path="/admin/analise" element={<ProtectedRoute allowedRoles={["admin"]}><Analise /></ProtectedRoute>} />
 
