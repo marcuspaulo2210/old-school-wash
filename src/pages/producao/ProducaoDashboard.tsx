@@ -259,8 +259,9 @@ const ProducaoDashboard = () => {
     } as any).eq("id", finalizingOrder.id);
 
     if (updateError) {
+      console.error("Erro handleFinalize:", updateError);
       setSaving(false);
-      setConfirmation({ pedido: finalizingOrder.numero_pedido, variant: "danger", title: "Erro ao liberar" });
+      setConfirmation({ pedido: finalizingOrder.numero_pedido, variant: "danger", title: `Erro: ${updateError.message}` });
       return;
     }
 
