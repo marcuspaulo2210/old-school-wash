@@ -607,53 +607,12 @@ const ProducaoDashboard = () => {
               </p>
             </div>
 
-            <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: "rgba(240,160,32,0.10)", color: "#f0a020" }}>
-              ⚠ Registre as peças de saída antes de liberar para entrega.
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Peças de saída</p>
-              {saidaItems.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">Nenhuma peça adicionada ainda.</p>
-              )}
-              {saidaItems.map((s, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <select
-                    className="field-select flex-1 text-xs py-2"
-                    value={s.tipo_roupa_id || ""}
-                    onChange={(e) => setSaidaItems(prev => prev.map((p, i) => i === idx ? { ...p, tipo_roupa_id: e.target.value || null, descricao: "" } : p))}
-                  >
-                    <option value="">— Outro (descrever) —</option>
-                    {tiposRoupa.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                  </select>
-                  {!s.tipo_roupa_id && (
-                    <input
-                      className="field-input flex-1 text-xs py-2"
-                      placeholder="Descrição"
-                      value={s.descricao}
-                      onChange={(e) => setSaidaItems(prev => prev.map((p, i) => i === idx ? { ...p, descricao: e.target.value } : p))}
-                    />
-                  )}
-                  <input
-                    type="number"
-                    min={1}
-                    className="field-input w-16 text-center font-mono text-xs py-2"
-                    value={s.quantidade}
-                    onChange={(e) => setSaidaItems(prev => prev.map((p, i) => i === idx ? { ...p, quantidade: parseInt(e.target.value) || 0 } : p))}
-                  />
-                  <button onClick={() => setSaidaItems(prev => prev.filter((_, i) => i !== idx))} className="p-1.5" style={{ color: "#e05050" }}><X className="w-4 h-4" /></button>
-                </div>
-              ))}
-              <button
-                className="btn-ghost text-xs w-full"
-                onClick={() => setSaidaItems(prev => [...prev, { tipo_roupa_id: null, descricao: "", quantidade: 1 }])}
-              >
-                <Plus className="w-3.5 h-3.5" /> Adicionar peça de saída
-              </button>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              As peças já foram registradas na etapa anterior. Confirmar liberação para entrega?
+            </p>
 
             <div className="flex gap-2">
-              <button className="btn-ghost flex-1" onClick={() => { setFinalizingOrder(null); setSaidaItems([]); }} disabled={saving}>Cancelar</button>
+              <button className="btn-ghost flex-1" onClick={() => setFinalizingOrder(null)} disabled={saving}>Cancelar</button>
               <button
                 className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: "#34c97a" }}
