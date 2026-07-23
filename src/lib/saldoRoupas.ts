@@ -76,7 +76,7 @@ export async function atualizarSaldo(pedidoId: string): Promise<void> {
       .select("id, descricao, total_enviado, total_devolvido, saldo")
       .eq("cliente_id", clienteId);
 
-    const linha = (existentes || []).find((r: any) => norm(r.descricao) === key);
+    const linha: any = ((existentes as any[]) || []).find((r: any) => norm(r.descricao) === key);
 
     let saldoAnterior = 0;
     let saldoNovo = 0;
