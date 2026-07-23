@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Download, TrendingUp, Scale, Package, AlertTriangle, Calendar } from "lucide-react";
+import SaldoRoupasSection from "@/components/admin/SaldoRoupasSection";
 
 interface Lancamento {
   id: string;
@@ -214,6 +215,10 @@ const Analise = () => {
       </div>
 
       {loading && <p className="text-center text-xs text-muted-foreground mt-4">Carregando...</p>}
+
+      <div className="mt-8">
+        <SaldoRoupasSection />
+      </div>
     </AdminLayout>
   );
 };
