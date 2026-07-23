@@ -1,0 +1,1 @@
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS motorista_id uuid REFERENCES public.usuarios(id) ON DELETE SET NULL;

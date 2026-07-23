@@ -25,6 +25,7 @@ export type Database = {
           email: string | null
           endereco: string | null
           id: string
+          motorista_id: string | null
           nome: string
           observacoes: string | null
           preco_kg: number | null
@@ -48,6 +49,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           id?: string
+          motorista_id?: string | null
           nome: string
           observacoes?: string | null
           preco_kg?: number | null
@@ -71,6 +73,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           id?: string
+          motorista_id?: string | null
           nome?: string
           observacoes?: string | null
           preco_kg?: number | null
@@ -85,6 +88,13 @@ export type Database = {
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
         }
         Relationships: [
+          {
+            foreignKeyName: "clientes_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clientes_rota_id_fkey"
             columns: ["rota_id"]
