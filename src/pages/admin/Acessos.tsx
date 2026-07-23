@@ -546,6 +546,18 @@ const Acessos = () => {
                   </select>
                 </div>
               )}
+              {editTarget.origem === "cliente" && (
+                <div className="md:col-span-2">
+                  <label className="field-label">Motorista de coleta</label>
+                  <select className="field-select" value={editMotoristaId} onChange={(e) => setEditMotoristaId(e.target.value)}>
+                    <option value="">Selecione o motorista</option>
+                    {motoristas.map((m) => (
+                      <option key={m.id} value={m.id}>{m.nome}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground mt-1">Opcional — usado como fallback quando a rota não tem motorista.</p>
+                </div>
+              )}
               <div>
                 <label className="field-label">Email</label>
                 <input className="field-input" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
