@@ -25,6 +25,11 @@ interface RotaOpt {
   dias_semana: string[] | null;
 }
 
+interface MotoristaOpt {
+  id: string;
+  nome: string;
+}
+
 const tipoMeta: Record<Row["tipo"], { label: string; cls: string }> = {
   clinica: { label: "Clínica", cls: "badge-success" },
   hospital: { label: "Hospital", cls: "badge-purple" },
@@ -66,6 +71,7 @@ const Acessos = () => {
   const [tipoCliente, setTipoCliente] = useState<"clinica" | "hospital">("clinica");
   const [rotaId, setRotaId] = useState<string>("");
   const [rotas, setRotas] = useState<RotaOpt[]>([]);
+  const [motoristas, setMotoristas] = useState<MotoristaOpt[]>([]);
   // Funcionario fields
   const [perfil, setPerfil] = useState<"admin" | "motorista" | "producao">("motorista");
 
@@ -77,6 +83,7 @@ const Acessos = () => {
   const [editTipo, setEditTipo] = useState<"clinica" | "hospital">("clinica");
   const [editPerfil, setEditPerfil] = useState<"admin" | "motorista" | "producao">("motorista");
   const [editRotaId, setEditRotaId] = useState<string>("");
+  const [editMotoristaId, setEditMotoristaId] = useState<string>("");
   const [editSaving, setEditSaving] = useState(false);
 
   // Reset password modal
@@ -89,11 +96,13 @@ const Acessos = () => {
   const fetchAll = async () => {
     setLoading(true);
     const [{ data: cls }, { data: us }, { data: rs }] = await Promise.all([
-      supabase.from("clientes").select("id, nome, tipo, email, telefone, ativo, auth_user_id, rota_id").order("nome"),
+      supabase.from("clientes").select("id, nome, tipo, email, telefone, ativo, auth_user_id, rota_id, motorista_id").order("nome"),
       supabase.from("usuarios").select("id, nome, email, perfil, ativo, telefone").order("nome"),
       supabase.from("rotas").select("id, nome, periodo, dias_semana").eq("ativo", true).order("nome"),
     ]);
     setRotas((rs as any) || []);
+    const mots = ((us as any[]) || []).filter((u) => u.perfil === "motorista" && u.ativo).map((u) => ({ id: u.id, nome: u.nome }));
+    setMotoristas(mots);
 
     const cliRows: Row[] = (cls || []).map((c: any) => ({
       id: c.id,
@@ -215,6 +224,7 @@ const Acessos = () => {
     if (r.origem === "cliente") {
       setEditTipo(r.tipo as "clinica" | "hospital");
       setEditRotaId(r.raw?.rota_id || "");
+      setEditMotoristaId(r.raw?.motorista_id || "");
     }
     else setEditPerfil(r.tipo as "admin" | "motorista" | "producao");
   };
@@ -230,6 +240,7 @@ const Acessos = () => {
           email: editEmail.trim() || null,
           telefone: editTelefone.trim() || null,
           rota_id: editRotaId || null,
+          motorista_id: editMotoristaId || null,
         } as any).eq("id", editTarget.id);
         if (error) { toast.error(error.message); setEditSaving(false); return; }
       } else {
