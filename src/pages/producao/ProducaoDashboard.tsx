@@ -261,10 +261,11 @@ const ProducaoDashboard = () => {
     await registrarMudancaStatus(finalizingOrder.id, "embalado", "pronto_para_entrega", user.id, "Finalizado e liberado para entrega");
 
     const pedido = finalizingOrder.numero_pedido;
+    const finalizedId = finalizingOrder.id;
     setFinalizingOrder(null);
     setSaving(false);
+    setOrders(prev => prev.filter(p => p.id !== finalizedId));
     setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
-    fetchOrders();
   };
 
   const renderClientGroup = (group: ClienteGroup, showFinalize: boolean) => {
@@ -627,7 +628,16 @@ const ProducaoDashboard = () => {
       )}
 
       {confirmation && (
-        <ConfirmationModal numeroPedido={confirmation.pedido} variant={confirmation.variant} title={confirmation.title} onClose={() => setConfirmation(null)} />
+        <ConfirmationModal
+          numeroPedido={confirmation.pedido}
+          variant={confirmation.variant}
+          title={confirmation.title}
+          onClose={() => {
+            setConfirmation(null);
+            setFinalizingOrder(null);
+            fetchOrders();
+          }}
+        />
       )}
     </AppLayout>
   );
