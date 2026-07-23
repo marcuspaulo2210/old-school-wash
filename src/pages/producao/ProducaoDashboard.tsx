@@ -42,11 +42,6 @@ interface NewProdItem {
   observacao: string;
 }
 
-interface SaidaItem {
-  tipo_roupa_id: string | null;
-  descricao: string;
-  quantidade: number;
-}
 interface TipoRoupa { id: string; nome: string; }
 
 interface ClienteGroup {
@@ -79,7 +74,6 @@ const ProducaoDashboard = () => {
 
   // Finalize modal
   const [finalizingOrder, setFinalizingOrder] = useState<Pedido | null>(null);
-  const [saidaItems, setSaidaItems] = useState<SaidaItem[]>([]);
   const [tiposRoupa, setTiposRoupa] = useState<TipoRoupa[]>([]);
 
   // Selected client group
@@ -255,33 +249,19 @@ const ProducaoDashboard = () => {
 
   const handleFinalize = async () => {
     if (!finalizingOrder || !user) return;
-    const validItems = saidaItems.filter(s => (s.descricao.trim() || s.tipo_roupa_id) && s.quantidade > 0);
-    if (validItems.length === 0) {
-      alert("Registre ao menos uma peça de saída antes de liberar o pedido para entrega.");
-      return;
-    }
     setSaving(true);
-
-    await supabase.from("itens_saida").insert(
-      validItems.map(s => ({
-        pedido_id: finalizingOrder.id,
-        tipo_roupa_id: s.tipo_roupa_id || null,
-        descricao_livre: s.tipo_roupa_id ? null : s.descricao.trim(),
-        quantidade: s.quantidade,
-        criado_por: user.id,
-      })) as any
-    );
 
     await supabase.from("pedidos").update({
       status: "pronto_para_entrega" as any,
       pronto_em: new Date().toISOString(),
+      saida_registrada: true,
+      saida_em: new Date().toISOString(),
     } as any).eq("id", finalizingOrder.id);
 
     await registrarMudancaStatus(finalizingOrder.id, "embalado", "pronto_para_entrega", user.id, "Finalizado e liberado para entrega");
 
     const pedido = finalizingOrder.numero_pedido;
     setFinalizingOrder(null);
-    setSaidaItems([]);
     setSaving(false);
     setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
     fetchOrders();
