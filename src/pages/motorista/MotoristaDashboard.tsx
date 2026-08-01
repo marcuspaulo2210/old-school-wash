@@ -499,9 +499,14 @@ const MotoristaDashboard = () => {
       {/* Solicitar novo cliente button */}
       <div className="flex items-center justify-between mb-4">
         <div />
-        <button className="btn-primary text-xs px-3 py-2" onClick={() => setShowSolicForm(true)}>
-          <Plus className="w-4 h-4" /> Solicitar novo cliente
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="btn-primary text-xs px-3 py-2" onClick={() => openNovoPedido()}>
+            <Plus className="w-4 h-4" /> Abrir pedido
+          </button>
+          <button className="btn-ghost text-xs px-3 py-2" onClick={() => setShowSolicForm(true)}>
+            <Plus className="w-4 h-4" /> Solicitar novo cliente
+          </button>
+        </div>
       </div>
 
       {/* Solicitar form */}
@@ -600,7 +605,7 @@ const MotoristaDashboard = () => {
                       <button
                         className="text-[11px] font-bold px-3 py-2 rounded-lg shrink-0"
                         style={{ background: "rgba(240,160,32,0.15)", color: "#f0a020" }}
-                        onClick={() => { setColetaSemPedidoTarget(c); setCspPeso(""); setCspObs(""); }}
+                        onClick={() => openNovoPedido(c.id, c.tipo_cobranca)}
                       >
                         Coletar sem pedido
                       </button>
@@ -616,7 +621,42 @@ const MotoristaDashboard = () => {
           {orders.length === 0 ? (
             <div className="empty-state"><div className="empty-state-icon">🚚</div><p className="empty-state-text">Nenhuma coleta atribuída</p></div>
           ) : (
-            <div className="space-y-2">{orders.map(renderOrderCard)}</div>
+            <div className="space-y-2">
+              {orders.map((o) => (
+                <div key={o.id} className="space-y-1">
+                  {renderOrderCard(o)}
+                  <button
+                    className="w-full text-[11px] font-semibold py-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+                    onClick={() => toggleDetalhes(o)}
+                  >
+                    {expandedId === o.id ? "Ocultar detalhes" : "Ver detalhes"}
+                  </button>
+                  {expandedId === o.id && (
+                    <div className="rounded-lg border border-[rgba(255,255,255,0.07)] bg-card p-3">
+                      {(expandedItems[o.id] || []).length > 0 ? (
+                        <table className="data-table">
+                          <thead><tr><th>Peça</th><th className="text-center">Qtd.</th></tr></thead>
+                          <tbody>
+                            {(expandedItems[o.id] || []).map((it) => (
+                              <tr key={it.id}>
+                                <td className="font-medium text-foreground">{it.tipos_roupa?.nome || it.descricao_livre || "—"}</td>
+                                <td className="text-center font-mono font-bold">{it.quantidade_original}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {o.tipo_cobranca === "peso"
+                            ? `Pedido por peso${o.peso_kg ? ` — ${o.peso_kg} kg` : ""}`
+                            : "Nenhuma peça registrada neste pedido"}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </TabsContent>
 
