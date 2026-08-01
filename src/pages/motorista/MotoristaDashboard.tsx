@@ -81,6 +81,129 @@ const MotoristaDashboard = () => {
   const [cspObs, setCspObs] = useState("");
   const [cspSaving, setCspSaving] = useState(false);
 
+  // Abrir pedido (motorista)
+  const [showNovoPedido, setShowNovoPedido] = useState(false);
+  const [npClienteId, setNpClienteId] = useState("");
+  const [npTipo, setNpTipo] = useState<"peca" | "peso">("peca");
+  const [npItens, setNpItens] = useState<{ descricao: string; quantidade: string }[]>([{ descricao: "", quantidade: "" }]);
+  const [npPeso, setNpPeso] = useState("");
+  const [npPesoObs, setNpPesoObs] = useState("");
+  const [npObs, setNpObs] = useState("");
+  const [npSaving, setNpSaving] = useState(false);
+
+  // Expandir detalhes na aba Coletas
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Record<string, ItemPedido[]>>({});
+
+  const openNovoPedido = (clienteId?: string, tipoCobranca?: string) => {
+    setNpClienteId(clienteId || "");
+    setNpTipo(tipoCobranca === "peso" ? "peso" : "peca");
+    setNpItens([{ descricao: "", quantidade: "" }]);
+    setNpPeso(""); setNpPesoObs(""); setNpObs("");
+    setShowNovoPedido(true);
+  };
+
+  const toggleDetalhes = async (order: Pedido) => {
+    if (expandedId === order.id) { setExpandedId(null); return; }
+    setExpandedId(order.id);
+    if (!expandedItems[order.id]) {
+      const { data } = await supabase
+        .from("itens_pedido")
+        .select("id, descricao_livre, quantidade_original, tipos_roupa(nome)")
+        .eq("pedido_id", order.id);
+      setExpandedItems((prev) => ({ ...prev, [order.id]: (data as unknown as ItemPedido[]) || [] }));
+    }
+  };
+
+  const notificarAdmins = async (mensagem: string, pedidoId: string) => {
+    const { data: admins } = await supabase.from("usuarios").select("id").eq("perfil", "admin").eq("ativo", true);
+    for (const a of (admins || []) as any[]) {
+      await supabase.from("notificacoes").insert({
+        user_id: a.id,
+        pedido_id: pedidoId,
+        tipo: "info",
+        titulo: "Pedido aberto pelo motorista",
+        mensagem,
+      } as any);
+    }
+  };
+
+  const handleCriarPedidoMotorista = async () => {
+    if (!user) return;
+    if (!npClienteId) { toast.error("Selecione o cliente"); return; }
+    const itensValidos = npItens
+      .map((i) => ({ descricao: i.descricao.trim(), quantidade: parseInt(i.quantidade || "0", 10) }))
+      .filter((i) => i.descricao && i.quantidade > 0);
+    const pesoNum = parseFloat(npPeso);
+    if (npTipo === "peca" && itensValidos.length === 0) { toast.error("Adicione pelo menos uma peça"); return; }
+    if (npTipo === "peso" && (!pesoNum || pesoNum <= 0)) { toast.error("Informe um peso válido"); return; }
+
+    setNpSaving(true);
+    const nowIso = new Date().toISOString();
+    const { data: novo, error } = await supabase.from("pedidos").insert({
+      cliente_id: npClienteId,
+      motorista_id: user.id,
+      status: "aguardando_coleta",
+      tipo_cobranca: npTipo,
+      quem_contou: "lavanderia",
+      obs_motorista: npObs.trim() || null,
+      peso_kg: npTipo === "peso" ? pesoNum : null,
+      peso_motorista_kg: npTipo === "peso" ? pesoNum : null,
+      peso_motorista_em: npTipo === "peso" ? nowIso : null,
+      peso_motorista_obs: npTipo === "peso" ? (npPesoObs.trim() || null) : null,
+      data_coleta_prevista: nowIso.slice(0, 10),
+    } as any).select("id, numero_pedido").single();
+
+    if (error || !novo) {
+      toast.error("Não foi possível criar o pedido: " + (error?.message || ""));
+      setNpSaving(false);
+      return;
+    }
+    const pedidoId = (novo as any).id as string;
+
+    if (npTipo === "peca") {
+      const { error: itensErr } = await supabase.from("itens_pedido").insert(
+        itensValidos.map((i) => ({
+          pedido_id: pedidoId,
+          descricao_livre: i.descricao,
+          quantidade_original: i.quantidade,
+          origem: "motorista",
+        })) as any
+      );
+      if (itensErr) toast.error("Peças não salvas: " + itensErr.message);
+    }
+
+    await supabase.from("pedidos").update({
+      status: "coletado" as any,
+      coletado_em: nowIso,
+    } as any).eq("id", pedidoId);
+    await registrarMudancaStatus(pedidoId, "aguardando_coleta", "coletado", user.id, "Pedido aberto pelo motorista");
+
+    if (npTipo === "peso") {
+      await supabase.from("lancamentos_peso").insert({
+        pedido_id: pedidoId,
+        cliente_id: npClienteId,
+        motorista_id: user.id,
+        peso_kg: pesoNum,
+        observacao: npPesoObs.trim() || "Pedido aberto pelo motorista",
+      } as any);
+    }
+
+    const clienteNome = routeClients.find((c) => c.id === npClienteId)?.nome || "cliente";
+    try {
+      await notificarAdmins(
+        `Pedido ${(novo as any).numero_pedido} aberto pelo motorista para ${clienteNome}.`,
+        pedidoId
+      );
+    } catch (e) { console.error("notificarAdmins falhou", e); }
+
+    setShowNovoPedido(false);
+    setNpSaving(false);
+    setConfirmation({ pedido: (novo as any).numero_pedido, action: "Pedido aberto (coletado)" });
+    fetchOrders();
+    fetchRouteOfDay();
+  };
+
   const handleSalvarPeso = async () => {
     if (!user || !pesoTarget) return;
     const v = parseFloat(pesoValor);
