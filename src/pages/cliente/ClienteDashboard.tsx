@@ -716,6 +716,18 @@ const ClienteDashboard = () => {
                           const enviados = (itensPedidoMap[order.id] || []).reduce((s, it) => s + it.quantidade, 0);
                           const devolvidos = (itensSaidaMap[order.id] || []).reduce((s, it) => s + it.quantidade, 0);
                           if (enviados === 0 && devolvidos === 0) return null;
+                          if (devolvidos === 0) {
+                            return (
+                              <div className="rounded-lg p-3 text-xs" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                <div className="flex justify-between mb-1">
+                                  <span className="text-muted-foreground">Enviado: <span className="font-mono font-bold text-foreground">{enviados}</span> peças</span>
+                                </div>
+                                <p className="font-semibold mt-1" style={{ color: "#f0a020" }}>
+                                  Peças de devolução serão registradas pela produção
+                                </p>
+                              </div>
+                            );
+                          }
                           const ok = enviados === devolvidos;
                           return (
                             <div className="rounded-lg p-3 text-xs" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -729,19 +741,44 @@ const ClienteDashboard = () => {
                             </div>
                           );
                         }
-                        if (order.tipo_cobranca === "peso" && order.peso_motorista_kg) {
+                        if (order.tipo_cobranca === "peso") {
                           const enviado = Number(order.peso_informado_cliente ?? order.peso_kg ?? 0);
-                          const coletado = Number(order.peso_motorista_kg);
-                          const ok = Math.abs(enviado - coletado) < 0.01;
+                          const coletado = order.peso_motorista_kg != null ? Number(order.peso_motorista_kg) : null;
+                          const ok = coletado != null ? Math.abs(enviado - coletado) < 0.01 : true;
+                          const saida = itensSaidaMap[order.id] || [];
+                          const devolvidas = saida.reduce((s, it) => s + it.quantidade, 0);
+                          if (enviado === 0 && coletado == null && devolvidas === 0) return null;
                           return (
                             <div className="rounded-lg p-3 text-xs" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
                               <div className="flex justify-between mb-1">
-                                <span className="text-muted-foreground">Enviado: <span className="font-mono font-bold text-foreground">{enviado.toFixed(3)} kg</span></span>
-                                <span className="text-muted-foreground">Peso coletado: <span className="font-mono font-bold text-foreground">{coletado.toFixed(3)} kg</span></span>
+                                <span className="text-muted-foreground">Peso enviado: <span className="font-mono font-bold text-foreground">{enviado.toFixed(3)} kg</span></span>
+                                {coletado != null && (
+                                  <span className="text-muted-foreground">Peso coletado: <span className="font-mono font-bold text-foreground">{coletado.toFixed(3)} kg</span></span>
+                                )}
                               </div>
-                              <p className="font-semibold mt-1" style={{ color: ok ? "#34c97a" : "#f0a020" }}>
-                                {ok ? "Conferência ok ✓" : "Verifique com a lavanderia"}
-                              </p>
+                              {devolvidas > 0 ? (
+                                <div className="mt-2 space-y-1 border-t border-border pt-2">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Peças devolvidas</span>
+                                    <span className="font-mono font-bold text-foreground">{devolvidas}</span>
+                                  </div>
+                                  {saida.map((it, i) => (
+                                    <div key={i} className="flex justify-between">
+                                      <span className="text-foreground">{it.nome}</span>
+                                      <span className="font-mono font-bold" style={{ color: "#5b8df6" }}>{it.quantidade}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="font-semibold mt-1" style={{ color: "#f0a020" }}>
+                                  Peças de devolução serão registradas pela produção
+                                </p>
+                              )}
+                              {coletado != null && (
+                                <p className="font-semibold mt-1" style={{ color: ok ? "#34c97a" : "#f0a020" }}>
+                                  {ok ? "Conferência ok ✓" : "Verifique com a lavanderia"}
+                                </p>
+                              )}
                             </div>
                           );
                         }
