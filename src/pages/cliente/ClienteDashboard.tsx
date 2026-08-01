@@ -87,6 +87,8 @@ const ClienteDashboard = () => {
   const [itensSaidaMap, setItensSaidaMap] = useState<Record<string, { nome: string; quantidade: number }[]>>({});
   const [itensPedidoMap, setItensPedidoMap] = useState<Record<string, { nome: string; quantidade: number }[]>>({});
   const [confirmation, setConfirmation] = useState<{ pedido: string } | null>(null);
+  const [motoristaNome, setMotoristaNome] = useState<string | null>(null);
+  const [motoristaFallbackId, setMotoristaFallbackId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
@@ -115,6 +117,7 @@ const ClienteDashboard = () => {
           setClienteInfo({ tipo: c.tipo });
           // Fallback: if route has no driver (or no route), use cliente.motorista_id
           const clienteFallback = c.motorista_id || null;
+          let resolvedMotorista: string | null = null;
           if (c.rota_id) {
             const { data: r } = await supabase
               .from("rotas")
@@ -124,11 +127,40 @@ const ClienteDashboard = () => {
             if (r) {
               const merged: any = { ...r, motorista_id: (r as any).motorista_id || clienteFallback };
               setRotaInfo(merged);
+              resolvedMotorista = merged.motorista_id || null;
             } else if (clienteFallback) {
               setRotaInfo({ id: "", dias_semana: null, horario_corte: null, periodo: null, motorista_id: clienteFallback } as any);
+              resolvedMotorista = clienteFallback;
             }
           } else if (clienteFallback) {
             setRotaInfo({ id: "", dias_semana: null, horario_corte: null, periodo: null, motorista_id: clienteFallback } as any);
+            resolvedMotorista = clienteFallback;
+          }
+
+          // 3º fallback: qualquer motorista ativo do sistema
+          if (!resolvedMotorista) {
+            const { data: anyMot } = await supabase
+              .from("usuarios")
+              .select("id")
+              .eq("perfil", "motorista")
+              .eq("ativo", true)
+              .limit(1)
+              .maybeSingle();
+            if (anyMot?.id) {
+              resolvedMotorista = anyMot.id;
+              setMotoristaFallbackId(anyMot.id);
+            }
+          }
+
+          if (resolvedMotorista) {
+            const { data: mot } = await supabase
+              .from("usuarios")
+              .select("nome")
+              .eq("id", resolvedMotorista)
+              .maybeSingle();
+            setMotoristaNome((mot as any)?.nome || null);
+          } else {
+            setMotoristaNome(null);
           }
         });
 
