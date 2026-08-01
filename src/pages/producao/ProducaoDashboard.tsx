@@ -248,6 +248,24 @@ const ProducaoDashboard = () => {
     fetchOrders();
   };
 
+  const handleRequestFinalize = async () => {
+    if (!finalizingOrder) return;
+    const { data: conferidos } = await supabase
+      .from("itens_pedido")
+      .select("id, quantidade_conferida")
+      .eq("pedido_id", finalizingOrder.id)
+      .not("quantidade_conferida", "is", null);
+
+    const temConferencia = (conferidos || []).some((it: any) => (it.quantidade_conferida ?? 0) > 0);
+    const temManual = newProdItems.some(pi => pi.descricao.trim() && pi.quantidade > 0);
+
+    if (!temConferencia && !temManual) {
+      setAskUseOriginal(true);
+      return;
+    }
+    handleFinalize();
+  };
+
   const handleFinalize = async (useOriginal = false) => {
     if (!finalizingOrder || !user) return;
     setSaving(true);
