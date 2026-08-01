@@ -803,10 +803,6 @@ const MotoristaDashboard = () => {
         </ConfirmationModal>
       )}
 
-      {coletaSemPedidoTarget && (
-        <></>
-      )}
-
       {showNovoPedido && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !npSaving && setShowNovoPedido(false)}>
           <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-3" onClick={(e) => e.stopPropagation()}>
