@@ -251,7 +251,7 @@ const ClienteDashboard = () => {
         status: "aguardando_coleta",
         peso_informado_cliente: isHospital && pesoEstimado ? parseFloat(pesoEstimado) : null,
         data_coleta_prevista: rotaInfo ? toIsoDate(dataColeta) : null,
-        motorista_id: rotaInfo?.motorista_id || null,
+        motorista_id: rotaInfo?.motorista_id || motoristaFallbackId || null,
       } as any)
       .select("id, numero_pedido")
       .single();
@@ -328,7 +328,7 @@ const ClienteDashboard = () => {
         rascunho: isDraft,
         status: "aguardando_coleta",
         data_coleta_prevista: rotaInfo ? toIsoDate(dataColeta) : null,
-        motorista_id: rotaInfo?.motorista_id || null,
+        motorista_id: rotaInfo?.motorista_id || motoristaFallbackId || null,
       } as any)
       .select("id, numero_pedido")
       .single();
