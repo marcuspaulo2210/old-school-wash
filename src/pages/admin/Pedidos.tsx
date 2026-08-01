@@ -43,6 +43,7 @@ interface Order {
   motorista_id: string | null;
   cliente_id: string;
   clientes: { nome: string; tipo: string } | null;
+  usuarios?: { nome: string } | null;
 }
 
 interface Motorista { id: string; nome: string; }
@@ -64,7 +65,7 @@ const AdminPedidos = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo)")
+      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo), usuarios!pedidos_motorista_id_fkey(nome)")
       .order("criado_em", { ascending: false })
       .limit(200);
     setOrders((data as unknown as Order[]) || []);
@@ -158,6 +159,7 @@ const AdminPedidos = () => {
               <tr>
                 <th>Nº Pedido</th>
                 <th>Cliente</th>
+                <th>Motorista</th>
                 <th>Quem contou</th>
                 <th className="text-right">Peso</th>
                 <th className="text-right">Valor</th>
@@ -166,11 +168,25 @@ const AdminPedidos = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-8">Nenhum pedido</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={8} className="text-center text-muted-foreground py-8">Nenhum pedido</td></tr>}
               {filtered.map((order) => (
                 <tr key={order.id} className="cursor-pointer" onClick={() => openOrder(order)}>
                   <td className="font-mono font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</td>
                   <td className="text-foreground font-medium">{order.clientes?.nome || "—"}</td>
+                  <td>
+                    {order.motorista_id ? (
+                      <span className="text-foreground">{order.usuarios?.nome || "Atribuído"}</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ background: "rgba(224,80,80,0.15)", color: "#e05050", border: "1px solid rgba(224,80,80,0.35)" }}>Sem motorista</span>
+                        <button
+                          className="text-[10px] font-semibold underline"
+                          style={{ color: "#5b8df6" }}
+                          onClick={(e) => { e.stopPropagation(); openOrder(order); }}
+                        >Atribuir</button>
+                      </span>
+                    )}
+                  </td>
                   <td className="text-muted-foreground capitalize">{order.quem_contou}</td>
                   <td className="text-right font-mono">{order.peso_kg ? `${order.peso_kg} kg` : "—"}</td>
                   <td className="text-right font-mono">{order.valor_total ? `R$ ${Number(order.valor_total).toFixed(2)}` : "—"}</td>
@@ -233,7 +249,7 @@ const AdminPedidos = () => {
               </table>
             )}
 
-            {selectedOrder.status === "aguardando_coleta" && (
+            {(selectedOrder.status === "aguardando_coleta" || !selectedOrder.motorista_id) && (
               <div className="space-y-2">
                 <label className="field-label">Atribuir motorista</label>
                 <div className="flex gap-2">
