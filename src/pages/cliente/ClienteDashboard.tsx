@@ -780,6 +780,13 @@ const ClienteDashboard = () => {
           {activeTab === "peca" && isHospital && totalHospitalPieces > 0 && <div className="flex justify-between"><span>Peças:</span><span className="text-foreground font-mono">{totalHospitalPieces}</span></div>}
           {activeTab === "peca" && isHospital && pesoEstimado && <div className="flex justify-between"><span>Peso estimado:</span><span className="text-foreground font-mono">{parseFloat(pesoEstimado).toFixed(3)} kg</span></div>}
           {activeTab === "peso" && pesoKg && <div className="flex justify-between"><span>Peso:</span><span className="text-foreground font-mono">{parseFloat(pesoKg).toFixed(3)} kg</span></div>}
+          {motoristaNome ? (
+            <div className="flex justify-between"><span>Motorista responsável:</span><span className="text-foreground font-medium">{motoristaNome}</span></div>
+          ) : (
+            <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: "rgba(240,160,32,0.12)", border: "1px solid rgba(240,160,32,0.35)", color: "#f0a020" }}>
+              Nenhum motorista atribuído — contate o administrador.
+            </div>
+          )}
         </ConfirmationModal>
       )}
     </AppLayout>
