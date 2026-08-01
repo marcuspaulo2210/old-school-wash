@@ -107,7 +107,10 @@ const ClienteDashboard = () => {
 
   useEffect(() => {
     supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome")
-      .then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
+      .then(({ data, error }) => {
+        console.log("tiposRoupa:", data, error);
+        setTiposRoupa((data as unknown as TipoRoupa[]) || []);
+      });
 
     if (user && profile?.cliente_id) {
       supabase.from("clientes").select("tipo, rota_id, motorista_id").eq("id", profile.cliente_id).single()
