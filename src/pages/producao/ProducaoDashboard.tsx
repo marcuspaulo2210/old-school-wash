@@ -74,6 +74,7 @@ const ProducaoDashboard = () => {
 
   // Finalize modal
   const [finalizingOrder, setFinalizingOrder] = useState<Pedido | null>(null);
+  const [askUseOriginal, setAskUseOriginal] = useState(false);
   const [tiposRoupa, setTiposRoupa] = useState<TipoRoupa[]>([]);
 
   // Selected client group
@@ -247,7 +248,7 @@ const ProducaoDashboard = () => {
     fetchOrders();
   };
 
-  const handleFinalize = async () => {
+  const handleFinalize = async (useOriginal = false) => {
     if (!finalizingOrder || !user) return;
     setSaving(true);
 
@@ -266,16 +267,35 @@ const ProducaoDashboard = () => {
 
       let payload: any[] = [];
 
-      if (conferidos && conferidos.length > 0) {
-        payload = conferidos
-          .filter((it: any) => (it.quantidade_conferida ?? 0) > 0)
+      // Prioridade 1: conferência real
+      payload = (conferidos || [])
+        .filter((it: any) => (it.quantidade_conferida ?? 0) > 0)
+        .map((it: any) => ({
+          pedido_id: finalizingOrder.id,
+          descricao_livre: it.tipos_roupa?.nome || it.descricao_livre || "Peça",
+          quantidade: it.quantidade_conferida,
+          criado_por: user.id,
+        }));
+
+      // Prioridade 2: quantidades originais enviadas pelo cliente
+      if (payload.length === 0) {
+        const { data: originais } = await supabase
+          .from("itens_pedido")
+          .select("id, descricao_livre, quantidade_original, tipos_roupa(nome)")
+          .eq("pedido_id", finalizingOrder.id);
+
+        payload = (originais || [])
+          .filter((it: any) => (it.quantidade_original ?? 0) > 0)
           .map((it: any) => ({
             pedido_id: finalizingOrder.id,
             descricao_livre: it.tipos_roupa?.nome || it.descricao_livre || "Peça",
-            quantidade: it.quantidade_conferida,
+            quantidade: it.quantidade_original,
             criado_por: user.id,
           }));
-      } else {
+      }
+
+      // Prioridade 3: itens digitados manualmente pela produção
+      if (payload.length === 0) {
         payload = newProdItems
           .filter(pi => pi.descricao.trim() && pi.quantidade > 0)
           .map(pi => ({
@@ -285,6 +305,16 @@ const ProducaoDashboard = () => {
             observacao: pi.observacao || null,
             criado_por: user.id,
           }));
+      }
+
+      // Fallback final (pedidos por peso sem itens): registro genérico
+      if (payload.length === 0) {
+        payload = [{
+          pedido_id: finalizingOrder.id,
+          descricao_livre: "Roupas lavadas",
+          quantidade: 1,
+          criado_por: user.id,
+        }];
       }
 
       if (payload.length > 0) {
@@ -317,6 +347,7 @@ const ProducaoDashboard = () => {
     const pedido = finalizingOrder.numero_pedido;
     const finalizedId = finalizingOrder.id;
     setFinalizingOrder(null);
+    setAskUseOriginal(false);
     setSaving(false);
     setOrders(prev => prev.filter(p => p.id !== finalizedId));
     setTimeout(() => fetchOrders(), 1000);
@@ -654,7 +685,7 @@ const ProducaoDashboard = () => {
 
       {/* Finalize confirmation modal */}
       {finalizingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !saving && setFinalizingOrder(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => { if (!saving) { setFinalizingOrder(null); setAskUseOriginal(false); } }}>
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div>
               <h3 className="text-sm font-bold text-foreground">Finalizar e liberar para entrega</h3>
@@ -663,21 +694,43 @@ const ProducaoDashboard = () => {
               </p>
             </div>
 
-            <p className="text-sm text-muted-foreground">
-              As peças já foram registradas na etapa anterior. Confirmar liberação para entrega?
-            </p>
-
-            <div className="flex gap-2">
-              <button className="btn-ghost flex-1" onClick={() => setFinalizingOrder(null)} disabled={saving}>Cancelar</button>
-              <button
-                className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: "#34c97a" }}
-                onClick={handleFinalize}
-                disabled={saving}
-              >
-                {saving ? "Finalizando..." : "✓ Liberar para entrega"}
-              </button>
-            </div>
+            {askUseOriginal ? (
+              <>
+                <p className="text-sm" style={{ color: "#f5b544" }}>
+                  Você não preencheu a conferência das peças. Deseja usar as quantidades originais enviadas pelo cliente?
+                </p>
+                <div className="flex gap-2">
+                  <button className="btn-ghost flex-1" onClick={() => { setAskUseOriginal(false); setFinalizingOrder(null); }} disabled={saving}>
+                    Voltar e conferir
+                  </button>
+                  <button
+                    className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{ background: "#34c97a" }}
+                    onClick={() => handleFinalize(true)}
+                    disabled={saving}
+                  >
+                    {saving ? "Finalizando..." : "Sim, usar quantidades originais"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  As peças já foram registradas na etapa anterior. Confirmar liberação para entrega?
+                </p>
+                <div className="flex gap-2">
+                  <button className="btn-ghost flex-1" onClick={() => setFinalizingOrder(null)} disabled={saving}>Cancelar</button>
+                  <button
+                    className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{ background: "#34c97a" }}
+                    onClick={handleRequestFinalize}
+                    disabled={saving}
+                  >
+                    {saving ? "Verificando..." : "✓ Liberar para entrega"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -690,6 +743,7 @@ const ProducaoDashboard = () => {
           onClose={() => {
             setConfirmation(null);
             setFinalizingOrder(null);
+            setAskUseOriginal(false);
           }}
         />
       )}
