@@ -81,6 +81,129 @@ const MotoristaDashboard = () => {
   const [cspObs, setCspObs] = useState("");
   const [cspSaving, setCspSaving] = useState(false);
 
+  // Abrir pedido (motorista)
+  const [showNovoPedido, setShowNovoPedido] = useState(false);
+  const [npClienteId, setNpClienteId] = useState("");
+  const [npTipo, setNpTipo] = useState<"peca" | "peso">("peca");
+  const [npItens, setNpItens] = useState<{ descricao: string; quantidade: string }[]>([{ descricao: "", quantidade: "" }]);
+  const [npPeso, setNpPeso] = useState("");
+  const [npPesoObs, setNpPesoObs] = useState("");
+  const [npObs, setNpObs] = useState("");
+  const [npSaving, setNpSaving] = useState(false);
+
+  // Expandir detalhes na aba Coletas
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Record<string, ItemPedido[]>>({});
+
+  const openNovoPedido = (clienteId?: string, tipoCobranca?: string) => {
+    setNpClienteId(clienteId || "");
+    setNpTipo(tipoCobranca === "peso" ? "peso" : "peca");
+    setNpItens([{ descricao: "", quantidade: "" }]);
+    setNpPeso(""); setNpPesoObs(""); setNpObs("");
+    setShowNovoPedido(true);
+  };
+
+  const toggleDetalhes = async (order: Pedido) => {
+    if (expandedId === order.id) { setExpandedId(null); return; }
+    setExpandedId(order.id);
+    if (!expandedItems[order.id]) {
+      const { data } = await supabase
+        .from("itens_pedido")
+        .select("id, descricao_livre, quantidade_original, tipos_roupa(nome)")
+        .eq("pedido_id", order.id);
+      setExpandedItems((prev) => ({ ...prev, [order.id]: (data as unknown as ItemPedido[]) || [] }));
+    }
+  };
+
+  const notificarAdmins = async (mensagem: string, pedidoId: string) => {
+    const { data: admins } = await supabase.from("usuarios").select("id").eq("perfil", "admin").eq("ativo", true);
+    for (const a of (admins || []) as any[]) {
+      await supabase.from("notificacoes").insert({
+        user_id: a.id,
+        pedido_id: pedidoId,
+        tipo: "info",
+        titulo: "Pedido aberto pelo motorista",
+        mensagem,
+      } as any);
+    }
+  };
+
+  const handleCriarPedidoMotorista = async () => {
+    if (!user) return;
+    if (!npClienteId) { toast.error("Selecione o cliente"); return; }
+    const itensValidos = npItens
+      .map((i) => ({ descricao: i.descricao.trim(), quantidade: parseInt(i.quantidade || "0", 10) }))
+      .filter((i) => i.descricao && i.quantidade > 0);
+    const pesoNum = parseFloat(npPeso);
+    if (npTipo === "peca" && itensValidos.length === 0) { toast.error("Adicione pelo menos uma peça"); return; }
+    if (npTipo === "peso" && (!pesoNum || pesoNum <= 0)) { toast.error("Informe um peso válido"); return; }
+
+    setNpSaving(true);
+    const nowIso = new Date().toISOString();
+    const { data: novo, error } = await supabase.from("pedidos").insert({
+      cliente_id: npClienteId,
+      motorista_id: user.id,
+      status: "aguardando_coleta",
+      tipo_cobranca: npTipo,
+      quem_contou: "lavanderia",
+      obs_motorista: npObs.trim() || null,
+      peso_kg: npTipo === "peso" ? pesoNum : null,
+      peso_motorista_kg: npTipo === "peso" ? pesoNum : null,
+      peso_motorista_em: npTipo === "peso" ? nowIso : null,
+      peso_motorista_obs: npTipo === "peso" ? (npPesoObs.trim() || null) : null,
+      data_coleta_prevista: nowIso.slice(0, 10),
+    } as any).select("id, numero_pedido").single();
+
+    if (error || !novo) {
+      toast.error("Não foi possível criar o pedido: " + (error?.message || ""));
+      setNpSaving(false);
+      return;
+    }
+    const pedidoId = (novo as any).id as string;
+
+    if (npTipo === "peca") {
+      const { error: itensErr } = await supabase.from("itens_pedido").insert(
+        itensValidos.map((i) => ({
+          pedido_id: pedidoId,
+          descricao_livre: i.descricao,
+          quantidade_original: i.quantidade,
+          origem: "motorista",
+        })) as any
+      );
+      if (itensErr) toast.error("Peças não salvas: " + itensErr.message);
+    }
+
+    await supabase.from("pedidos").update({
+      status: "coletado" as any,
+      coletado_em: nowIso,
+    } as any).eq("id", pedidoId);
+    await registrarMudancaStatus(pedidoId, "aguardando_coleta", "coletado", user.id, "Pedido aberto pelo motorista");
+
+    if (npTipo === "peso") {
+      await supabase.from("lancamentos_peso").insert({
+        pedido_id: pedidoId,
+        cliente_id: npClienteId,
+        motorista_id: user.id,
+        peso_kg: pesoNum,
+        observacao: npPesoObs.trim() || "Pedido aberto pelo motorista",
+      } as any);
+    }
+
+    const clienteNome = routeClients.find((c) => c.id === npClienteId)?.nome || "cliente";
+    try {
+      await notificarAdmins(
+        `Pedido ${(novo as any).numero_pedido} aberto pelo motorista para ${clienteNome}.`,
+        pedidoId
+      );
+    } catch (e) { console.error("notificarAdmins falhou", e); }
+
+    setShowNovoPedido(false);
+    setNpSaving(false);
+    setConfirmation({ pedido: (novo as any).numero_pedido, action: "Pedido aberto (coletado)" });
+    fetchOrders();
+    fetchRouteOfDay();
+  };
+
   const handleSalvarPeso = async () => {
     if (!user || !pesoTarget) return;
     const v = parseFloat(pesoValor);
@@ -376,9 +499,14 @@ const MotoristaDashboard = () => {
       {/* Solicitar novo cliente button */}
       <div className="flex items-center justify-between mb-4">
         <div />
-        <button className="btn-primary text-xs px-3 py-2" onClick={() => setShowSolicForm(true)}>
-          <Plus className="w-4 h-4" /> Solicitar novo cliente
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="btn-primary text-xs px-3 py-2" onClick={() => openNovoPedido()}>
+            <Plus className="w-4 h-4" /> Abrir pedido
+          </button>
+          <button className="btn-ghost text-xs px-3 py-2" onClick={() => setShowSolicForm(true)}>
+            <Plus className="w-4 h-4" /> Solicitar novo cliente
+          </button>
+        </div>
       </div>
 
       {/* Solicitar form */}
@@ -477,7 +605,7 @@ const MotoristaDashboard = () => {
                       <button
                         className="text-[11px] font-bold px-3 py-2 rounded-lg shrink-0"
                         style={{ background: "rgba(240,160,32,0.15)", color: "#f0a020" }}
-                        onClick={() => { setColetaSemPedidoTarget(c); setCspPeso(""); setCspObs(""); }}
+                        onClick={() => openNovoPedido(c.id, c.tipo_cobranca)}
                       >
                         Coletar sem pedido
                       </button>
@@ -493,7 +621,42 @@ const MotoristaDashboard = () => {
           {orders.length === 0 ? (
             <div className="empty-state"><div className="empty-state-icon">🚚</div><p className="empty-state-text">Nenhuma coleta atribuída</p></div>
           ) : (
-            <div className="space-y-2">{orders.map(renderOrderCard)}</div>
+            <div className="space-y-2">
+              {orders.map((o) => (
+                <div key={o.id} className="space-y-1">
+                  {renderOrderCard(o)}
+                  <button
+                    className="w-full text-[11px] font-semibold py-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+                    onClick={() => toggleDetalhes(o)}
+                  >
+                    {expandedId === o.id ? "Ocultar detalhes" : "Ver detalhes"}
+                  </button>
+                  {expandedId === o.id && (
+                    <div className="rounded-lg border border-[rgba(255,255,255,0.07)] bg-card p-3">
+                      {(expandedItems[o.id] || []).length > 0 ? (
+                        <table className="data-table">
+                          <thead><tr><th>Peça</th><th className="text-center">Qtd.</th></tr></thead>
+                          <tbody>
+                            {(expandedItems[o.id] || []).map((it) => (
+                              <tr key={it.id}>
+                                <td className="font-medium text-foreground">{it.tipos_roupa?.nome || it.descricao_livre || "—"}</td>
+                                <td className="text-center font-mono font-bold">{it.quantidade_original}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {o.tipo_cobranca === "peso"
+                            ? `Pedido por peso${o.peso_kg ? ` — ${o.peso_kg} kg` : ""}`
+                            : "Nenhuma peça registrada neste pedido"}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </TabsContent>
 
@@ -640,7 +803,130 @@ const MotoristaDashboard = () => {
         </ConfirmationModal>
       )}
 
-      {coletaSemPedidoTarget && (
+      {showNovoPedido && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !npSaving && setShowNovoPedido(false)}>
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-foreground">Abrir pedido para cliente</h3>
+              <button onClick={() => setShowNovoPedido(false)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
+            </div>
+
+            <div>
+              <label className="field-label">Cliente *</label>
+              <select className="field-select" value={npClienteId} onChange={(e) => {
+                const id = e.target.value;
+                setNpClienteId(id);
+                const c = routeClients.find((rc) => rc.id === id);
+                if (c) setNpTipo(c.tipo_cobranca === "peso" ? "peso" : "peca");
+              }}>
+                <option value="">Selecione...</option>
+                {routeClients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome}</option>
+                ))}
+              </select>
+              {routeClients.length === 0 && (
+                <p className="text-[11px] mt-1" style={{ color: "#f0a020" }}>Nenhum cliente vinculado à sua rota.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="field-label">Tipo de registro</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 py-2 text-xs font-bold rounded-lg border"
+                  style={npTipo === "peca"
+                    ? { background: "rgba(91,141,246,0.15)", color: "#5b8df6", borderColor: "rgba(91,141,246,0.4)" }
+                    : { background: "transparent", color: "#6b7190", borderColor: "rgba(255,255,255,0.07)" }}
+                  onClick={() => setNpTipo("peca")}
+                >
+                  Por Peças
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 py-2 text-xs font-bold rounded-lg border"
+                  style={npTipo === "peso"
+                    ? { background: "rgba(91,141,246,0.15)", color: "#5b8df6", borderColor: "rgba(91,141,246,0.4)" }
+                    : { background: "transparent", color: "#6b7190", borderColor: "rgba(255,255,255,0.07)" }}
+                  onClick={() => setNpTipo("peso")}
+                >
+                  Por Peso
+                </button>
+              </div>
+            </div>
+
+            {npTipo === "peca" ? (
+              <div className="space-y-2">
+                {npItens.map((it, idx) => (
+                  <div key={idx} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="field-label">Descrição da peça</label>
+                      <input
+                        className="field-input"
+                        value={it.descricao}
+                        onChange={(e) => setNpItens((prev) => prev.map((p, i) => i === idx ? { ...p, descricao: e.target.value } : p))}
+                        placeholder="Ex: Camisola"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <label className="field-label">Qtd.</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="field-input font-mono"
+                        value={it.quantidade}
+                        onChange={(e) => setNpItens((prev) => prev.map((p, i) => i === idx ? { ...p, quantidade: e.target.value } : p))}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg shrink-0"
+                      style={{ background: "rgba(224,80,80,0.12)", color: "#e05050" }}
+                      onClick={() => setNpItens((prev) => prev.length === 1 ? [{ descricao: "", quantidade: "" }] : prev.filter((_, i) => i !== idx))}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn-ghost w-full text-xs"
+                  onClick={() => setNpItens((prev) => [...prev, { descricao: "", quantidade: "" }])}
+                >
+                  <Plus className="w-4 h-4" /> Adicionar peça
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="field-label">Peso (kg) *</label>
+                  <input type="number" step="0.001" className="field-input font-mono" value={npPeso} onChange={(e) => setNpPeso(e.target.value)} placeholder="Ex: 4.5" />
+                </div>
+                <div>
+                  <label className="field-label">Observação do peso</label>
+                  <textarea className="field-input min-h-[50px] resize-none" value={npPesoObs} onChange={(e) => setNpPesoObs(e.target.value)} />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="field-label">Observações gerais</label>
+              <textarea className="field-input min-h-[50px] resize-none" value={npObs} onChange={(e) => setNpObs(e.target.value)} />
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">O pedido será criado já como <strong className="text-foreground">coletado</strong> e seguirá para a produção.</p>
+
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" onClick={() => setShowNovoPedido(false)} disabled={npSaving}>Cancelar</button>
+              <button className="btn-primary flex-1" onClick={handleCriarPedidoMotorista} disabled={npSaving}>
+                {npSaving ? "Criando..." : "Criar pedido"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {false && coletaSemPedidoTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !cspSaving && setColetaSemPedidoTarget(null)}>
           <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
