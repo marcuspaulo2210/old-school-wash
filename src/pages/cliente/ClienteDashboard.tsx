@@ -107,7 +107,10 @@ const ClienteDashboard = () => {
 
   useEffect(() => {
     supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome")
-      .then(({ data }) => setTiposRoupa((data as unknown as TipoRoupa[]) || []));
+      .then(({ data, error }) => {
+        console.log("tiposRoupa:", data, error);
+        setTiposRoupa((data as unknown as TipoRoupa[]) || []);
+      });
 
     if (user && profile?.cliente_id) {
       supabase.from("clientes").select("tipo, rota_id, motorista_id").eq("id", profile.cliente_id).single()
@@ -186,6 +189,18 @@ const ClienteDashboard = () => {
   const showOnlyPeso = !permissions.permite_cobranca_peca && permissions.permite_cobranca_peso;
 
   const addItem = () => { if (!isHospital) setItems([...items, { tipo_roupa_id: "", descricao_livre: "", quantidade_original: 1 }]); };
+  const addSugestao = (nome: string) => {
+    if (isHospital) return;
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.descricao_livre.trim().toLowerCase() === nome.trim().toLowerCase());
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantidade_original: (next[idx].quantidade_original || 0) + 1 };
+        return next;
+      }
+      return [...prev, { tipo_roupa_id: "", descricao_livre: nome, quantidade_original: 1 }];
+    });
+  };
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
   const updateItem = (idx: number, field: keyof ItemPedido, value: string | number) => {
     setItems(items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
@@ -510,6 +525,23 @@ const ClienteDashboard = () => {
                     <label className="field-label mb-0">Peças</label>
                     <button className="btn-primary text-xs px-3 py-1.5" onClick={addItem}><Plus className="w-3 h-3" /> Adicionar</button>
                   </div>
+                  {tiposRoupa.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Sugestões rápidas</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {tiposRoupa.map((tr) => (
+                          <button
+                            key={tr.id}
+                            type="button"
+                            onClick={() => addSugestao(tr.nome)}
+                            className="text-[11px] px-2.5 py-1 rounded-lg border border-border bg-[#0c0e14] text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+                          >
+                            + {tr.nome}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {items.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma peça adicionada</p>}
                   <div className="space-y-2">
                     {items.map((item, idx) => (
