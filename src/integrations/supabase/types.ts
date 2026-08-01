@@ -922,6 +922,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_ids: { Args: never; Returns: string[] }
       buscar_cliente_por_nome: {
         Args: { _nome: string }
         Returns: {
@@ -935,6 +936,7 @@ export type Database = {
           auth_email: string
         }[]
       }
+      cliente_tem_pedidos: { Args: { _cliente_id: string }; Returns: boolean }
       criar_perfil_usuario: {
         Args: {
           _email: string
@@ -944,6 +946,13 @@ export type Database = {
         Returns: undefined
       }
       meu_cliente_id: { Args: never; Returns: string }
+      meu_motorista_id: { Args: never; Returns: string }
+      motorista_fallback_id: { Args: never; Returns: string }
+      motorista_pode_ver_cliente: {
+        Args: { _cliente_id: string }
+        Returns: boolean
+      }
+      nome_motorista: { Args: { _id: string }; Returns: string }
       registrar_tentativa_login: {
         Args: { _nome_clinica: string }
         Returns: undefined

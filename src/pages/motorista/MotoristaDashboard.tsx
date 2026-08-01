@@ -116,10 +116,11 @@ const MotoristaDashboard = () => {
   };
 
   const notificarAdmins = async (mensagem: string, pedidoId: string) => {
-    const { data: admins } = await supabase.from("usuarios").select("id").eq("perfil", "admin").eq("ativo", true);
-    for (const a of (admins || []) as any[]) {
+    const { data: admins } = await (supabase as any).rpc("admin_ids");
+    for (const adminId of ((admins || []) as any[]).map((a) => (typeof a === "string" ? a : a?.admin_ids ?? a?.id))) {
+      if (!adminId) continue;
       await supabase.from("notificacoes").insert({
-        user_id: a.id,
+        user_id: adminId,
         pedido_id: pedidoId,
         tipo: "info",
         titulo: "Pedido aberto pelo motorista",

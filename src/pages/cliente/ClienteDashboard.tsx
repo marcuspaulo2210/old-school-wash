@@ -142,26 +142,16 @@ const ClienteDashboard = () => {
 
           // 3º fallback: qualquer motorista ativo do sistema
           if (!resolvedMotorista) {
-            const { data: anyMot } = await supabase
-              .from("usuarios")
-              .select("id")
-              .eq("perfil", "motorista")
-              .eq("ativo", true)
-              .limit(1)
-              .maybeSingle();
-            if (anyMot?.id) {
-              resolvedMotorista = anyMot.id;
-              setMotoristaFallbackId(anyMot.id);
+            const { data: anyMot } = await (supabase as any).rpc("motorista_fallback_id");
+            if (anyMot) {
+              resolvedMotorista = anyMot as string;
+              setMotoristaFallbackId(anyMot as string);
             }
           }
 
           if (resolvedMotorista) {
-            const { data: mot } = await supabase
-              .from("usuarios")
-              .select("nome")
-              .eq("id", resolvedMotorista)
-              .maybeSingle();
-            setMotoristaNome((mot as any)?.nome || null);
+            const { data: nome } = await (supabase as any).rpc("nome_motorista", { _id: resolvedMotorista });
+            setMotoristaNome((nome as string) || null);
           } else {
             setMotoristaNome(null);
           }
