@@ -804,6 +804,133 @@ const MotoristaDashboard = () => {
       )}
 
       {coletaSemPedidoTarget && (
+        <></>
+      )}
+
+      {showNovoPedido && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !npSaving && setShowNovoPedido(false)}>
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-foreground">Abrir pedido para cliente</h3>
+              <button onClick={() => setShowNovoPedido(false)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
+            </div>
+
+            <div>
+              <label className="field-label">Cliente *</label>
+              <select className="field-select" value={npClienteId} onChange={(e) => {
+                const id = e.target.value;
+                setNpClienteId(id);
+                const c = routeClients.find((rc) => rc.id === id);
+                if (c) setNpTipo(c.tipo_cobranca === "peso" ? "peso" : "peca");
+              }}>
+                <option value="">Selecione...</option>
+                {routeClients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome}</option>
+                ))}
+              </select>
+              {routeClients.length === 0 && (
+                <p className="text-[11px] mt-1" style={{ color: "#f0a020" }}>Nenhum cliente vinculado à sua rota.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="field-label">Tipo de registro</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 py-2 text-xs font-bold rounded-lg border"
+                  style={npTipo === "peca"
+                    ? { background: "rgba(91,141,246,0.15)", color: "#5b8df6", borderColor: "rgba(91,141,246,0.4)" }
+                    : { background: "transparent", color: "#6b7190", borderColor: "rgba(255,255,255,0.07)" }}
+                  onClick={() => setNpTipo("peca")}
+                >
+                  Por Peças
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 py-2 text-xs font-bold rounded-lg border"
+                  style={npTipo === "peso"
+                    ? { background: "rgba(91,141,246,0.15)", color: "#5b8df6", borderColor: "rgba(91,141,246,0.4)" }
+                    : { background: "transparent", color: "#6b7190", borderColor: "rgba(255,255,255,0.07)" }}
+                  onClick={() => setNpTipo("peso")}
+                >
+                  Por Peso
+                </button>
+              </div>
+            </div>
+
+            {npTipo === "peca" ? (
+              <div className="space-y-2">
+                {npItens.map((it, idx) => (
+                  <div key={idx} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="field-label">Descrição da peça</label>
+                      <input
+                        className="field-input"
+                        value={it.descricao}
+                        onChange={(e) => setNpItens((prev) => prev.map((p, i) => i === idx ? { ...p, descricao: e.target.value } : p))}
+                        placeholder="Ex: Camisola"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <label className="field-label">Qtd.</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="field-input font-mono"
+                        value={it.quantidade}
+                        onChange={(e) => setNpItens((prev) => prev.map((p, i) => i === idx ? { ...p, quantidade: e.target.value } : p))}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg shrink-0"
+                      style={{ background: "rgba(224,80,80,0.12)", color: "#e05050" }}
+                      onClick={() => setNpItens((prev) => prev.length === 1 ? [{ descricao: "", quantidade: "" }] : prev.filter((_, i) => i !== idx))}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn-ghost w-full text-xs"
+                  onClick={() => setNpItens((prev) => [...prev, { descricao: "", quantidade: "" }])}
+                >
+                  <Plus className="w-4 h-4" /> Adicionar peça
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="field-label">Peso (kg) *</label>
+                  <input type="number" step="0.001" className="field-input font-mono" value={npPeso} onChange={(e) => setNpPeso(e.target.value)} placeholder="Ex: 4.5" />
+                </div>
+                <div>
+                  <label className="field-label">Observação do peso</label>
+                  <textarea className="field-input min-h-[50px] resize-none" value={npPesoObs} onChange={(e) => setNpPesoObs(e.target.value)} />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="field-label">Observações gerais</label>
+              <textarea className="field-input min-h-[50px] resize-none" value={npObs} onChange={(e) => setNpObs(e.target.value)} />
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">O pedido será criado já como <strong className="text-foreground">coletado</strong> e seguirá para a produção.</p>
+
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" onClick={() => setShowNovoPedido(false)} disabled={npSaving}>Cancelar</button>
+              <button className="btn-primary flex-1" onClick={handleCriarPedidoMotorista} disabled={npSaving}>
+                {npSaving ? "Criando..." : "Criar pedido"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {false && coletaSemPedidoTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => !cspSaving && setColetaSemPedidoTarget(null)}>
           <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
