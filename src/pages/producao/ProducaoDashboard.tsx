@@ -251,6 +251,53 @@ const ProducaoDashboard = () => {
     if (!finalizingOrder || !user) return;
     setSaving(true);
 
+    // 1) Salvar peças de saída antes de liberar
+    const { data: existingSaida } = await supabase
+      .from("itens_saida")
+      .select("id")
+      .eq("pedido_id", finalizingOrder.id);
+
+    if (!existingSaida || existingSaida.length === 0) {
+      const { data: conferidos } = await supabase
+        .from("itens_pedido")
+        .select("id, descricao_livre, quantidade_conferida, tipos_roupa(nome)")
+        .eq("pedido_id", finalizingOrder.id)
+        .not("quantidade_conferida", "is", null);
+
+      let payload: any[] = [];
+
+      if (conferidos && conferidos.length > 0) {
+        payload = conferidos
+          .filter((it: any) => (it.quantidade_conferida ?? 0) > 0)
+          .map((it: any) => ({
+            pedido_id: finalizingOrder.id,
+            descricao_livre: it.tipos_roupa?.nome || it.descricao_livre || "Peça",
+            quantidade: it.quantidade_conferida,
+            criado_por: user.id,
+          }));
+      } else {
+        payload = newProdItems
+          .filter(pi => pi.descricao.trim() && pi.quantidade > 0)
+          .map(pi => ({
+            pedido_id: finalizingOrder.id,
+            descricao_livre: pi.descricao.trim(),
+            quantidade: pi.quantidade,
+            observacao: pi.observacao || null,
+            criado_por: user.id,
+          }));
+      }
+
+      if (payload.length > 0) {
+        const { error: saidaError } = await supabase.from("itens_saida").insert(payload as any);
+        if (saidaError) {
+          console.error("Erro ao salvar itens_saida:", saidaError);
+          setSaving(false);
+          setConfirmation({ pedido: finalizingOrder.numero_pedido, variant: "danger", title: `Erro ao salvar peças: ${saidaError.message}` });
+          return;
+        }
+      }
+    }
+
     const { error: updateError } = await supabase.from("pedidos").update({
       status: "pronto_para_entrega" as any,
       pronto_em: new Date().toISOString(),
