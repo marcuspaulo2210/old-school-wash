@@ -189,6 +189,18 @@ const ClienteDashboard = () => {
   const showOnlyPeso = !permissions.permite_cobranca_peca && permissions.permite_cobranca_peso;
 
   const addItem = () => { if (!isHospital) setItems([...items, { tipo_roupa_id: "", descricao_livre: "", quantidade_original: 1 }]); };
+  const addSugestao = (nome: string) => {
+    if (isHospital) return;
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.descricao_livre.trim().toLowerCase() === nome.trim().toLowerCase());
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantidade_original: (next[idx].quantidade_original || 0) + 1 };
+        return next;
+      }
+      return [...prev, { tipo_roupa_id: "", descricao_livre: nome, quantidade_original: 1 }];
+    });
+  };
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
   const updateItem = (idx: number, field: keyof ItemPedido, value: string | number) => {
     setItems(items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
