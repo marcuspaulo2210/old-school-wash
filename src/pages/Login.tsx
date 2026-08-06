@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import amanaLogo from "@/assets/amana-logo.png";
 
 type LoginTab = "cliente" | "funcionario";
 
@@ -59,11 +60,12 @@ const Login = () => {
       <div className="w-full max-w-sm animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
-            <span className="text-xl font-extrabold text-primary-foreground font-mono">AM</span>
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Amaná</h1>
-          <p className="text-sm text-muted-foreground font-medium mt-1">Lavanderia Hospitalar</p>
+          <img
+            src={amanaLogo}
+            alt="Amaná Lavanderia Hospitalar"
+            className="mx-auto w-full max-w-[200px] h-auto rounded-lg"
+            style={{ objectFit: "contain" }}
+          />
         </div>
 
         {/* Tab Buttons */}
