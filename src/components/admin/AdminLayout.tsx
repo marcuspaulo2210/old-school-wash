@@ -14,6 +14,7 @@ import {
   X,
   CalendarDays,
 } from "lucide-react";
+import amanaLogo from "@/assets/amana-logo.png";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -72,8 +73,12 @@ const AdminLayout = ({ children, title, subtitle, actions }: AdminLayoutProps) =
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="px-5 pt-5 pb-4">
-        <h1 className="text-sm font-extrabold text-foreground tracking-tight">Amaná</h1>
-        <p className="text-[11px] text-muted-foreground font-medium">Lavanderia Hospitalar</p>
+        <img
+          src={amanaLogo}
+          alt="Amaná Lavanderia Hospitalar"
+          className="w-full max-w-[140px] h-auto rounded-md"
+          style={{ objectFit: "contain" }}
+        />
       </div>
 
       <div className="h-px mx-4" style={{ background: "rgba(255,255,255,0.06)" }} />
