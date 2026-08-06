@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LogOut, ChevronLeft } from "lucide-react";
+import amanaLogo from "@/assets/amana-logo.png";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -33,8 +34,13 @@ const AppLayout = ({ children, title, subtitle, backTo, actions }: AppLayoutProp
               </button>
             )}
             <div>
-              <h1 className="text-sm font-bold text-foreground">{title}</h1>
-              {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+              <img
+                src={amanaLogo}
+                alt="Amaná Lavanderia Hospitalar"
+                className="w-full max-w-[120px] h-auto rounded-md"
+                style={{ objectFit: "contain" }}
+              />
+              {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
             </div>
           </div>
           <div className="flex items-center gap-3">
