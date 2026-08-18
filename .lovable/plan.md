@@ -1,37 +1,29 @@
+# Recibo Mensal + Valor por Pedido
 
+## Parte 1 — Valor editável por pedido
+Na tabela de pedidos do admin (`src/pages/admin/Pedidos.tsx`), a coluna "Valor" passa a ser editável inline:
+- Clique na célula abre um input numérico com o valor atual.
+- Enter ou clique fora salva em `pedidos.valor_total`; Esc cancela.
+- Sem valor: "—" em cinza com ícone de lápis. Com valor: "R$ XX,XX" em verde.
+- Toast de confirmação/erro. O clique na célula não abre o modal de detalhe do pedido.
 
-## Plano: Implementar funcionalidades pendentes
+O campo `valor_total` já existe na tabela `pedidos` (numérico) — nenhuma alteração de banco é necessária.
 
-### 1. Limite de trocas de senha (2 trocas livres)
+## Parte 2 — Seção "Recibo Mensal" na Análise
+Em `src/pages/admin/Analise.tsx`, nova seção abaixo do saldo de roupas:
+- Seletor de cliente (obrigatório), seletor de mês/ano e botão "Gerar recibo" (desabilitado sem cliente).
+- Abre modal em tela cheia, fundo branco e texto escuro, com o recibo formatado para A4.
 
-**Lógica:**
-- Na tela de troca de senha (`PrimeiroAcesso.tsx` e futura tela de "Alterar senha"), verificar `quantidade_trocas_senha` do usuário
-- Se >= 2: bloquear e exibir mensagem "Limite de trocas atingido. Solicite ao administrador."
-- Criar tabela `solicitacoes_troca_senha` (user_id, status: pendente/aprovada/rejeitada, criado_em)
-- Incrementar `quantidade_trocas_senha` após cada troca (exceto primeiro acesso)
+Conteúdo do recibo:
+- Cabeçalho: logo Amaná centralizado, linha azul, "AMANA LAVANDERIA HOSPITALAR", "Comprovante de Serviços Prestados".
+- Dados: cliente, período por extenso (ex.: Julho de 2026), emitido em (data por extenso).
+- Tabela: Data da coleta | Pedido | Descrição | Qtd/Peso | Valor (R$), com linhas alternadas. Somente pedidos com status `entregue` no mês.
+  - Descrição: resumo das peças (tipos de roupa/descrição livre) ou "X kg lavados" quando cobrança por peso.
+- Totalizador: TOTAL DO PERÍODO em bold, total de peças lavadas e peso total lavado.
+- Rodapé: nome da empresa, aviso de documento sem valor fiscal, agradecimento.
+- Botão azul "Imprimir recibo" fora da área impressa, chamando `window.print()`.
 
-**Painel Admin:**
-- Nova seção ou badge no dashboard: "Solicitações de senha pendentes"
-- Admin pode: redefinir senha via edge function, autorizar +1 troca, ou zerar contador
-- Migração SQL para criar a tabela + RLS
+Dados buscados na geração: pedidos entregues do cliente no mês + itens de cada pedido para montar a descrição e os subtotais.
 
-### 2. Impersonação de usuários (Acessar como)
-
-**Já existe parcialmente:** `ImpersonationBar.tsx` e lógica em `App.tsx` com `localStorage`.
-
-**Falta implementar:**
-- Botão "Acessar como" em cada linha de `Usuarios.tsx`
-- Ao clicar: salvar dados no `localStorage`, registrar log na tabela `log_impersonacao`, redirecionar ao dashboard do perfil do usuário
-- A tabela `log_impersonacao` já foi criada na migração anterior — verificar se existe no banco
-
-### Arquivos a criar/editar
-
-| Arquivo | Ação |
-|---|---|
-| `supabase/migrations/new.sql` | Criar `solicitacoes_troca_senha`, verificar `log_impersonacao` |
-| `src/pages/admin/Usuarios.tsx` | Adicionar botão "Acessar como" + seção de solicitações |
-| `src/pages/PrimeiroAcesso.tsx` | Incrementar contador (excluindo primeiro acesso) |
-| `src/pages/admin/Dashboard.tsx` | Badge de solicitações pendentes |
-
-### Nenhuma função existente será removida.
-
+## Parte 3 — CSS de impressão
+Adicionar em `src/index.css` o bloco `@media print` que esconde tudo exceto `.recibo-print` (aplicada ao container do recibo) e oculta `.btn-imprimir`.
