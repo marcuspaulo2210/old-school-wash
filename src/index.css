@@ -220,3 +220,20 @@
     to { opacity: 1; transform: translateY(0); }
   }
 }
+
+/* ===== Impressão do recibo ===== */
+@media print {
+  body * { visibility: hidden; }
+  .recibo-print, .recibo-print * { visibility: visible; }
+  .recibo-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+  }
+  .btn-imprimir { display: none !important; }
+  @page { size: A4; margin: 14mm; }
+}
