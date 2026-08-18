@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Download, TrendingUp, Scale, Package, AlertTriangle, Calendar } from "lucide-react";
 import SaldoRoupasSection from "@/components/admin/SaldoRoupasSection";
+import ReciboMensal from "@/components/admin/ReciboMensal";
 
 interface Lancamento {
   id: string;
@@ -218,6 +219,10 @@ const Analise = () => {
 
       <div className="mt-8">
         <SaldoRoupasSection />
+      </div>
+
+      <div className="mt-8">
+        <ReciboMensal clientes={clientes} />
       </div>
     </AdminLayout>
   );

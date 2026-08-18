@@ -5,7 +5,7 @@ import { registrarMudancaStatus } from "@/lib/statusHistory";
 import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { MessageSquare, TruckIcon, X } from "lucide-react";
+import { MessageSquare, TruckIcon, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface ItemPedido {
@@ -61,6 +61,31 @@ const AdminPedidos = () => {
   const [assignMotorista, setAssignMotorista] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmation, setConfirmation] = useState<{ pedido: string; variant: "info" | "success" | "danger"; title: string } | null>(null);
+  const [editingValorId, setEditingValorId] = useState<string | null>(null);
+  const [valorDraft, setValorDraft] = useState("");
+
+  const startEditValor = (order: Order) => {
+    setEditingValorId(order.id);
+    setValorDraft(order.valor_total != null ? String(order.valor_total).replace(".", ",") : "");
+  };
+
+  const saveValor = async (order: Order) => {
+    const raw = valorDraft.trim().replace(/\./g, "").replace(",", ".");
+    setEditingValorId(null);
+    const parsed = raw === "" ? null : Number(raw);
+    if (parsed !== null && (isNaN(parsed) || parsed < 0)) {
+      toast.error("Valor inválido");
+      return;
+    }
+    if (parsed === (order.valor_total != null ? Number(order.valor_total) : null)) return;
+    const { error } = await supabase.from("pedidos").update({ valor_total: parsed } as any).eq("id", order.id);
+    if (error) {
+      toast.error("Erro ao salvar valor: " + error.message);
+      return;
+    }
+    setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, valor_total: parsed } : o)));
+    toast.success("Valor atualizado");
+  };
 
   const fetchOrders = async () => {
     const { data } = await supabase
@@ -189,7 +214,31 @@ const AdminPedidos = () => {
                   </td>
                   <td className="text-muted-foreground capitalize">{order.quem_contou}</td>
                   <td className="text-right font-mono">{order.peso_kg ? `${order.peso_kg} kg` : "—"}</td>
-                  <td className="text-right font-mono">{order.valor_total ? `R$ ${Number(order.valor_total).toFixed(2)}` : "—"}</td>
+                  <td className="text-right font-mono" onClick={(e) => { e.stopPropagation(); if (editingValorId !== order.id) startEditValor(order); }}>
+                    {editingValorId === order.id ? (
+                      <input
+                        autoFocus
+                        inputMode="decimal"
+                        className="field-input w-24 text-right py-1 px-2 font-mono text-xs"
+                        value={valorDraft}
+                        onChange={(e) => setValorDraft(e.target.value)}
+                        onBlur={() => saveValor(order)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+                          if (e.key === "Escape") { e.preventDefault(); setEditingValorId(null); }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : order.valor_total != null ? (
+                      <span className="font-bold cursor-pointer" style={{ color: "#2dbfa0" }}>
+                        R$ {Number(order.valor_total).toFixed(2).replace(".", ",")}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-muted-foreground cursor-pointer">
+                        — <Pencil className="w-3 h-3" />
+                      </span>
+                    )}
+                  </td>
                   <td><StatusBadge status={order.status} /></td>
                   <td className="text-center">
                     {(order.obs_cliente || order.obs_motorista || order.obs_producao) && (
