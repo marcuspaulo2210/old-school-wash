@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Printer, Receipt, X, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
@@ -223,8 +223,8 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                     <tr><td colSpan={4} style={{ padding: "16px", textAlign: "center", color: "#666" }}>Nenhum pedido entregue no período</td></tr>
                   )}
                   {linhas.map((l, idx) => (
-                    <>
-                      <tr key={l.id} style={{ background: idx % 2 === 0 ? "#f5f6f8" : "#fff" }}>
+                    <Fragment key={l.id}>
+                      <tr style={{ background: idx % 2 === 0 ? "#f5f6f8" : "#fff" }}>
                         <td style={{ padding: "8px" }}>{new Date(l.data).toLocaleDateString("pt-BR")}</td>
                         <td style={{ padding: "8px", fontWeight: 700 }}>{l.numero_pedido}</td>
                         <td style={{ padding: "8px" }}>
@@ -240,7 +240,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: 700 }}>R$ {brl(l.total)}</td>
                       </tr>
                       {(expandido[l.id] || l.itens.length > 0) && (
-                        <tr key={l.id + "-det"} className={expandido[l.id] ? "" : "detalhe-recibo"} style={{ background: "#fff", display: expandido[l.id] ? undefined : "none" }}>
+                        <tr className={expandido[l.id] ? "" : "detalhe-recibo"} style={{ background: "#fff", display: expandido[l.id] ? undefined : "none" }}>
                           <td colSpan={4} style={{ padding: "4px 8px 10px 24px" }}>
                             {l.itens.length === 0 && <span style={{ color: "#888" }}>Sem itens registrados</span>}
                             {l.itens.map((i, k) => (
@@ -256,7 +256,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
                 <tfoot>
