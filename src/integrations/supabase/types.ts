@@ -34,6 +34,7 @@ export type Database = {
           quantidade_trocas_senha: number
           responsavel: string | null
           rota_id: string | null
+          tarifa_minima: number | null
           telefone: string | null
           tentativas_login: number
           tipo: Database["public"]["Enums"]["tipo_cliente"]
@@ -58,6 +59,7 @@ export type Database = {
           quantidade_trocas_senha?: number
           responsavel?: string | null
           rota_id?: string | null
+          tarifa_minima?: number | null
           telefone?: string | null
           tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
@@ -82,6 +84,7 @@ export type Database = {
           quantidade_trocas_senha?: number
           responsavel?: string | null
           rota_id?: string | null
+          tarifa_minima?: number | null
           telefone?: string | null
           tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
@@ -599,6 +602,45 @@ export type Database = {
             columns: ["motorista_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      precos_cliente: {
+        Row: {
+          cliente_id: string
+          criado_em: string
+          id: string
+          preco_unitario: number
+          tipo_roupa_id: string
+        }
+        Insert: {
+          cliente_id: string
+          criado_em?: string
+          id?: string
+          preco_unitario: number
+          tipo_roupa_id: string
+        }
+        Update: {
+          cliente_id?: string
+          criado_em?: string
+          id?: string
+          preco_unitario?: number
+          tipo_roupa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "precos_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "precos_cliente_tipo_roupa_id_fkey"
+            columns: ["tipo_roupa_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_roupa"
             referencedColumns: ["id"]
           },
         ]
