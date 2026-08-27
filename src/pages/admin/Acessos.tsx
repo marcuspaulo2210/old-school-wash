@@ -516,7 +516,30 @@ const Acessos = () => {
               <button onClick={() => setEditTarget(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {editTarget.origem === "cliente" && (
+              <div className="flex gap-2">
+                {([["dados", "Dados"], ["precos", "Tabela de preços"]] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setEditTab(k as "dados" | "precos")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                      editTab === k ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {editTarget.origem === "cliente" && editTab === "precos" && (
+              <PrecosClienteSection
+                clienteId={editTarget.id}
+                tarifaMinimaInicial={editTarget.raw?.tarifa_minima ?? null}
+              />
+            )}
+
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${editTarget.origem === "cliente" && editTab === "precos" ? "hidden" : ""}`}>
               <div className="md:col-span-2">
                 <label className="field-label">Nome</label>
                 <input className="field-input" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
