@@ -602,9 +602,11 @@ const Acessos = () => {
               </div>
             </div>
 
-            <button className="btn-primary w-full btn-lg" onClick={handleEditSave} disabled={editSaving}>
-              {editSaving ? "Salvando..." : "Salvar"}
-            </button>
+            {!(editTarget.origem === "cliente" && editTab === "precos") && (
+              <button className="btn-primary w-full btn-lg" onClick={handleEditSave} disabled={editSaving}>
+                {editSaving ? "Salvando..." : "Salvar"}
+              </button>
+            )}
           </div>
         </div>
       )}
