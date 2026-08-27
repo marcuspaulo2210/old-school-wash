@@ -220,6 +220,7 @@ const Acessos = () => {
   };
 
   const openEdit = (r: Row) => {
+    setEditTab("dados");
     setEditTarget(r);
     setEditNome(r.nome);
     setEditEmail(r.email || "");
