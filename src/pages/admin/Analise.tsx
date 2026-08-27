@@ -14,7 +14,7 @@ interface Lancamento {
   motorista_id: string;
   pedido_id: string;
 }
-interface ClienteLite { id: string; nome: string; tipo: string; preco_kg: number | null; preco_peca: number | null; tipo_cobranca: string; }
+interface ClienteLite { id: string; nome: string; tipo: string; preco_kg: number | null; preco_peca: number | null; tipo_cobranca: string; tarifa_minima: number | null; }
 interface UsuarioLite { id: string; nome: string; }
 interface PedidoLite {
   id: string; numero_pedido: string; status: string; criado_em: string; cliente_id: string;
@@ -39,6 +39,7 @@ const Analise = () => {
   const [clientes, setClientes] = useState<ClienteLite[]>([]);
   const [motoristas, setMotoristas] = useState<UsuarioLite[]>([]);
   const [filterCliente, setFilterCliente] = useState("todos");
+  const [clientesComTabela, setClientesComTabela] = useState<Record<string, boolean>>({});
 
   const fetchAll = async () => {
     setLoading(true);
@@ -47,9 +48,13 @@ const Analise = () => {
       supabase.from("lancamentos_peso").select("*").gte("criado_em", start).lt("criado_em", end),
       supabase.from("pedidos").select("id, numero_pedido, status, criado_em, cliente_id, peso_kg, peso_informado_cliente, peso_motorista_kg, peso_recebido_producao")
         .gte("criado_em", start).lt("criado_em", end),
-      supabase.from("clientes").select("id, nome, tipo, preco_kg, preco_peca, tipo_cobranca"),
+      supabase.from("clientes").select("id, nome, tipo, preco_kg, preco_peca, tipo_cobranca, tarifa_minima"),
       supabase.from("usuarios").select("id, nome").eq("perfil", "motorista"),
     ]);
+    const { data: prs } = await (supabase as any).from("precos_cliente").select("cliente_id");
+    const comTabela: Record<string, boolean> = {};
+    for (const p of ((prs as any[]) || [])) comTabela[p.cliente_id] = true;
+    setClientesComTabela(comTabela);
     setLancamentos((lps as any) || []);
     setPedidos((peds as any) || []);
     setClientes((cls as any) || []);
@@ -159,6 +164,7 @@ const Analise = () => {
               <tr>
                 <th>Cliente</th>
                 <th className="text-center">Tipo</th>
+                <th className="text-center">Tarifação</th>
                 <th className="text-center">Pedidos</th>
                 <th className="text-right">Peso motorista</th>
                 <th className="text-right">Peso produção</th>
@@ -166,12 +172,23 @@ const Analise = () => {
             </thead>
             <tbody>
               {perClient.length === 0 && (
-                <tr><td colSpan={5} className="text-center text-muted-foreground py-6">Nenhum dado neste mês</td></tr>
+                <tr><td colSpan={6} className="text-center text-muted-foreground py-6">Nenhum dado neste mês</td></tr>
               )}
               {perClient.map(r => (
                 <tr key={r.id}>
                   <td className="font-medium text-foreground">{r.cliente?.nome || "—"}</td>
-                  <td className="text-center text-xs uppercase">{r.cliente?.tipo || "—"}</td>
+                  <td className="text-center">
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${clientesComTabela[r.id] ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
+                        {clientesComTabela[r.id] ? "Tabela configurada" : "Sem tabela"}
+                      </span>
+                      {r.cliente?.tarifa_minima != null && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ background: "rgba(240,160,32,0.15)", color: "#f0a020" }}>
+                          Mín. R$ {Number(r.cliente.tarifa_minima).toFixed(2).replace(".", ",")}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="text-center font-mono">{r.pedidos}</td>
                   <td className="text-right font-mono">{r.pesoMot.toFixed(2)} kg</td>
                   <td className="text-right font-mono">{r.pesoProd.toFixed(2)} kg</td>
