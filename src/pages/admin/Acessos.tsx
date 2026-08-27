@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Plus, Search, X, Eye, EyeOff, Key, Power, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import PrecosClienteSection from "@/components/admin/PrecosClienteSection";
 
 type TipoFiltro = "todos" | "clinica" | "hospital" | "motorista" | "producao" | "admin";
 
