@@ -86,6 +86,8 @@ const Acessos = () => {
   const [editRotaId, setEditRotaId] = useState<string>("");
   const [editMotoristaId, setEditMotoristaId] = useState<string>("");
   const [editSaving, setEditSaving] = useState(false);
+  const [editTab, setEditTab] = useState<"dados" | "precos">("dados");
+
 
   // Reset password modal
   const [resetTarget, setResetTarget] = useState<Row | null>(null);
