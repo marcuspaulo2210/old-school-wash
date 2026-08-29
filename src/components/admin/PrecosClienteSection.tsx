@@ -22,6 +22,9 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
   const [tarifaMinima, setTarifaMinima] = useState(
     tarifaMinimaInicial != null ? String(tarifaMinimaInicial) : ""
   );
+  const [valorPorKg, setValorPorKg] = useState(
+    valorPorKgInicial != null ? String(valorPorKgInicial).replace(".", ",") : ""
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
