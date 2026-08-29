@@ -373,6 +373,35 @@ const ProducaoDashboard = () => {
     setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
   };
 
+  const handleLiberarDivergencia = async (order: Pedido) => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await liberarDivergenciaParaEntrega(order.id, order.numero_pedido, user.id);
+    setSaving(false);
+    if (error) {
+      setConfirmation({ pedido: order.numero_pedido, variant: "danger", title: `Erro: ${error.message}` });
+      return;
+    }
+    setOrders(prev => prev.filter(p => p.id !== order.id));
+    setConfirmation({ pedido: order.numero_pedido, variant: "success", title: "Divergência Resolvida — Liberado para Entrega" });
+    setTimeout(() => fetchOrders(), 800);
+  };
+
+  const handleDevolverProducao = async (order: Pedido) => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await devolverDivergenciaParaProducao(order.id, user.id);
+    setSaving(false);
+    if (error) {
+      setConfirmation({ pedido: order.numero_pedido, variant: "danger", title: `Erro: ${error.message}` });
+      return;
+    }
+    setConfirmation({ pedido: order.numero_pedido, variant: "success", title: "Devolvido para Produção" });
+    fetchOrders();
+  };
+
+
+
   const renderClientGroup = (group: ClienteGroup, showFinalize: boolean) => {
     const badge = tipoBadge(group.tipo);
     const embaladoCount = group.pedidos.filter(p => p.status === "embalado").length;
