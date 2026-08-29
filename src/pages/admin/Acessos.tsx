@@ -536,6 +536,7 @@ const Acessos = () => {
               <PrecosClienteSection
                 clienteId={editTarget.id}
                 tarifaMinimaInicial={editTarget.raw?.tarifa_minima ?? null}
+                valorPorKgInicial={editTarget.raw?.valor_por_kg ?? null}
               />
             )}
 
