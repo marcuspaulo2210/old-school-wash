@@ -517,6 +517,10 @@ const ProducaoDashboard = () => {
             <CheckCircle className="w-4 h-4" />
             Produção ({productionOrders.length})
           </TabsTrigger>
+          <TabsTrigger value="divergencias" className="flex-1 gap-1">
+            <AlertTriangle className="w-4 h-4" />
+            Divergências ({divergenceOrders.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="entrada">
