@@ -291,6 +291,14 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                   ))}
                 </tbody>
                 <tfoot>
+                  <tr>
+                    <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right", color: "#444", borderTop: "2px solid #1e4fa3" }}>Subtotal peças:</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: "#444", borderTop: "2px solid #1e4fa3" }}>R$ {brl(subtotalPecas)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right", color: "#444" }}>Subtotal peso:</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: "#444" }}>R$ {brl(subtotalPeso)}</td>
+                  </tr>
                   {aplicarMinima ? (
                     <>
                       <tr>
