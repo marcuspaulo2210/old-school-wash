@@ -252,14 +252,21 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                         <td style={{ padding: "8px" }}>{new Date(l.data).toLocaleDateString("pt-BR")}</td>
                         <td style={{ padding: "8px", fontWeight: 700 }}>{l.numero_pedido}</td>
                         <td style={{ padding: "8px" }}>
-                          <button
-                            className="btn-imprimir"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#1e4fa3", fontWeight: 600 }}
-                            onClick={() => setExpandido((e) => ({ ...e, [l.id]: !e[l.id] }))}
-                          >
-                            {expandido[l.id] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                            {l.itens.length} {l.itens.length === 1 ? "tipo de peça" : "tipos de peça"}
-                          </button>
+                          {l.porPeso ? (
+                            <span>
+                              {l.peso.toFixed(3).replace(".", ",")} kg × R$ {brl(l.valorKg as number)}/kg ={" "}
+                              <strong>R$ {brl(l.total)}</strong>
+                            </span>
+                          ) : (
+                            <button
+                              className="btn-imprimir"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#1e4fa3", fontWeight: 600 }}
+                              onClick={() => setExpandido((e) => ({ ...e, [l.id]: !e[l.id] }))}
+                            >
+                              {expandido[l.id] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                              {l.itens.length} {l.itens.length === 1 ? "tipo de peça" : "tipos de peça"}
+                            </button>
+                          )}
                         </td>
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: 700 }}>R$ {brl(l.total)}</td>
                       </tr>
