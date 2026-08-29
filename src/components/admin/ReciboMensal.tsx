@@ -160,7 +160,9 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
     if (!rows.length) toast.info("Nenhum pedido entregue neste período");
   };
 
-  const subtotal = linhas.reduce((s, l) => s + l.total, 0);
+  const subtotalPeso = linhas.reduce((s, l) => s + (l.porPeso ? l.total : 0), 0);
+  const subtotalPecas = linhas.reduce((s, l) => s + (l.porPeso ? 0 : l.total), 0);
+  const subtotal = subtotalPecas + subtotalPeso;
   const totalPecas = linhas.reduce((s, l) => s + l.pecas, 0);
   const totalPeso = linhas.reduce((s, l) => s + l.peso, 0);
   const aplicarMinima = tarifaMinima != null && tarifaMinima > 0 && subtotal < tarifaMinima;
