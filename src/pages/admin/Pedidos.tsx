@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { registrarMudancaStatus } from "@/lib/statusHistory";
+import { liberarDivergenciaParaEntrega, devolverDivergenciaParaProducao } from "@/lib/divergencia";
 import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
@@ -61,6 +62,7 @@ const AdminPedidos = () => {
   const [assignMotorista, setAssignMotorista] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmation, setConfirmation] = useState<{ pedido: string; variant: "info" | "success" | "danger"; title: string } | null>(null);
+  const [resolvingOrder, setResolvingOrder] = useState<Order | null>(null);
   const [editingValorId, setEditingValorId] = useState<string | null>(null);
   const [valorDraft, setValorDraft] = useState("");
 
@@ -142,6 +144,32 @@ const AdminPedidos = () => {
     const pedido = selectedOrder.numero_pedido;
     setSelectedOrder(null);
     setConfirmation({ pedido, variant: "success", title: "Pedido Entregue" });
+    fetchOrders();
+  };
+
+  const handleResolverLiberar = async () => {
+    if (!resolvingOrder || !user) return;
+    setSaving(true);
+    const { error } = await liberarDivergenciaParaEntrega(resolvingOrder.id, resolvingOrder.numero_pedido, user.id);
+    setSaving(false);
+    if (error) { toast.error("Erro ao liberar: " + error.message); return; }
+    const pedido = resolvingOrder.numero_pedido;
+    setResolvingOrder(null);
+    setSelectedOrder(null);
+    setConfirmation({ pedido, variant: "success", title: "Divergência resolvida — liberado para entrega" });
+    fetchOrders();
+  };
+
+  const handleResolverDevolver = async () => {
+    if (!resolvingOrder || !user) return;
+    setSaving(true);
+    const { error } = await devolverDivergenciaParaProducao(resolvingOrder.id, user.id);
+    setSaving(false);
+    if (error) { toast.error("Erro ao devolver: " + error.message); return; }
+    const pedido = resolvingOrder.numero_pedido;
+    setResolvingOrder(null);
+    setSelectedOrder(null);
+    setConfirmation({ pedido, variant: "info", title: "Pedido devolvido para produção" });
     fetchOrders();
   };
 
@@ -239,7 +267,18 @@ const AdminPedidos = () => {
                       </span>
                     )}
                   </td>
-                  <td><StatusBadge status={order.status} /></td>
+                  <td>
+                    <div className="flex flex-col items-start gap-1">
+                      <StatusBadge status={order.status} />
+                      {order.status === "divergencia" && (
+                        <button
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md"
+                          style={{ background: "rgba(224,80,80,0.15)", color: "#e05050", border: "1px solid rgba(224,80,80,0.35)" }}
+                          onClick={(e) => { e.stopPropagation(); setResolvingOrder(order); }}
+                        >Resolver divergência</button>
+                      )}
+                    </div>
+                  </td>
                   <td className="text-center">
                     {(order.obs_cliente || order.obs_motorista || order.obs_producao) && (
                       <MessageSquare className="w-3.5 h-3.5 inline" style={{ color: "#f0a020" }} />
@@ -311,6 +350,14 @@ const AdminPedidos = () => {
               </div>
             )}
 
+            {selectedOrder.status === "divergencia" && (
+              <button
+                className="w-full btn-lg font-bold rounded-lg"
+                style={{ background: "rgba(224,80,80,0.15)", color: "#e05050", border: "1px solid rgba(224,80,80,0.35)" }}
+                onClick={() => setResolvingOrder(selectedOrder)}
+              >⚠ Resolver divergência</button>
+            )}
+
             {selectedOrder.status === "embalado" && (
               <button className="btn-success w-full btn-lg" onClick={handleMarkEntregue} disabled={saving}>✓ Marcar como Entregue</button>
             )}
@@ -336,6 +383,30 @@ const AdminPedidos = () => {
             )}
 
             <button className="btn-ghost w-full" onClick={() => setSelectedOrder(null)}>Fechar</button>
+          </div>
+        </div>
+      )}
+
+      {resolvingOrder && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-5 w-full max-w-md space-y-4 animate-fade-in">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Resolver divergência</h3>
+              <p className="text-sm text-muted-foreground">
+                Pedido <span className="font-mono" style={{ color: "#5b8df6" }}>{resolvingOrder.numero_pedido}</span>
+                {resolvingOrder.clientes?.nome ? ` — ${resolvingOrder.clientes.nome}` : ""}
+              </p>
+            </div>
+            <button className="btn-success w-full btn-lg" onClick={handleResolverLiberar} disabled={saving}>
+              ✓ Resolver e liberar para entrega
+            </button>
+            <button
+              className="w-full btn-lg font-bold rounded-lg"
+              style={{ background: "rgba(240,160,32,0.15)", color: "#f0a020", border: "1px solid rgba(240,160,32,0.35)" }}
+              onClick={handleResolverDevolver}
+              disabled={saving}
+            >↺ Devolver para produção</button>
+            <button className="btn-ghost w-full" onClick={() => setResolvingOrder(null)}>Cancelar</button>
           </div>
         </div>
       )}
