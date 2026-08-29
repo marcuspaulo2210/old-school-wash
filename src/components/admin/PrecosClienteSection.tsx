@@ -149,6 +149,20 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
       )}
 
       <div>
+        <label className="field-label">Valor por kg lavado (R$)</label>
+        <input
+          className="field-input font-mono"
+          inputMode="decimal"
+          placeholder="Ex: 12,00"
+          value={valorPorKg}
+          onChange={(e) => setValorPorKg(e.target.value)}
+        />
+        <p className="text-[11px] text-muted-foreground mt-1">
+          Para clientes cobrados por peso. Deixe em branco se a cobrança for por peça.
+        </p>
+      </div>
+
+      <div>
         <label className="field-label">Tarifa mínima mensal (R$)</label>
         <input
           className="field-input font-mono"
