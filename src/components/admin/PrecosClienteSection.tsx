@@ -32,9 +32,10 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
     let alive = true;
     (async () => {
       setLoading(true);
-      const [{ data: tps }, { data: prs }] = await Promise.all([
+      const [{ data: tps }, { data: prs }, { data: cli }] = await Promise.all([
         db.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome"),
         db.from("precos_cliente").select("tipo_roupa_id, preco_unitario").eq("cliente_id", clienteId),
+        db.from("clientes").select("valor_por_kg, tarifa_minima").eq("id", clienteId).maybeSingle(),
       ]);
       if (!alive) return;
       setTipos((tps as TipoRow[]) || []);
@@ -45,7 +46,14 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
         map[p.tipo_roupa_id] = String(n).replace(".", ",");
       }
       setPrecos(map);
+      if (cli) {
+        const vk = (cli as any).valor_por_kg;
+        const tm = (cli as any).tarifa_minima;
+        setValorPorKg(vk != null ? String(Number(vk)).replace(".", ",") : "");
+        setTarifaMinima(tm != null ? String(Number(tm)).replace(".", ",") : "");
+      }
       setLoading(false);
+
     })();
     return () => {
       alive = false;
