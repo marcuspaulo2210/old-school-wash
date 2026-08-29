@@ -70,6 +70,10 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial }: Props) => {
           setSaving(false);
           return;
         }
+        if (n === 0) {
+          deletes.push(t.id);
+          continue;
+        }
         upserts.push({ cliente_id: clienteId, tipo_roupa_id: t.id, preco_unitario: n });
       }
 
