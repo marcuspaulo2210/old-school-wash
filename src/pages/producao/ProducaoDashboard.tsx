@@ -128,9 +128,10 @@ const ProducaoDashboard = () => {
     return true;
   });
 
-  // Separate entry orders vs production/embalado
+  // Separate entry orders vs production/embalado vs divergências
   const entryOrders = filteredOrders.filter(o => o.status === "coletado");
   const productionOrders = filteredOrders.filter(o => o.status === "em_producao" || o.status === "embalado");
+  const divergenceOrders = filteredOrders.filter(o => o.status === "divergencia");
 
   const entryGroups = getGroups(entryOrders);
   const productionGroups = getGroups(productionOrders);
