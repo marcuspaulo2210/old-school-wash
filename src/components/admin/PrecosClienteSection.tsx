@@ -16,7 +16,7 @@ interface TipoRow {
 
 const db = supabase as any;
 
-const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial }: Props) => {
+const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicial }: Props) => {
   const [tipos, setTipos] = useState<TipoRow[]>([]);
   const [precos, setPrecos] = useState<Record<string, string>>({});
   const [tarifaMinima, setTarifaMinima] = useState(
