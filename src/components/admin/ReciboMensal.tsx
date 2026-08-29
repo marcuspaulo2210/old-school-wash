@@ -21,6 +21,8 @@ interface Linha {
   pecas: number;
   peso: number;
   total: number;
+  porPeso: boolean;
+  valorKg: number | null;
 }
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
