@@ -58,6 +58,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
 
   const cliente = clientes.find((c) => c.id === clienteId);
   const tarifaMinima = cliente?.tarifa_minima != null ? Number(cliente.tarifa_minima) : null;
+  const valorKgCliente = cliente?.valor_por_kg != null ? Number(cliente.valor_por_kg) : null;
 
   const gerar = async () => {
     if (!clienteId) { toast.error("Selecione um cliente"); return; }
