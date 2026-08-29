@@ -126,7 +126,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
         ) || 0;
         const nome = i.tipos_roupa?.nome || i.descricao_livre || "Peça";
         const key = i.tipo_roupa_id || `livre:${nome}`;
-        const preco = i.tipo_roupa_id != null && precoMap[i.tipo_roupa_id] != null ? precoMap[i.tipo_roupa_id] : null;
+        const preco = acharPreco(i.tipo_roupa_id, nome);
         if (!agrupado[key]) agrupado[key] = { nome, quantidade: 0, preco, subtotal: 0 };
         agrupado[key].quantidade += qtd;
         agrupado[key].subtotal = preco != null ? agrupado[key].quantidade * preco : 0;
