@@ -95,12 +95,25 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
       itensSaida = (isd as any[]) || [];
     }
 
-    const { data: prs } = await db
+    const { data: prs, error: errPrecos } = await db
       .from("precos_cliente")
-      .select("tipo_roupa_id, preco_unitario")
+      .select("tipo_roupa_id, preco_unitario, tipos_roupa(nome)")
       .eq("cliente_id", clienteId);
+    if (errPrecos) toast.error("Erro ao buscar tabela de preços: " + errPrecos.message);
     const precoMap: Record<string, number> = {};
-    for (const p of (prs as any[]) || []) precoMap[p.tipo_roupa_id] = Number(p.preco_unitario);
+    const precoPorNome: Record<string, number> = {};
+    for (const p of (prs as any[]) || []) {
+      const valor = Number(p.preco_unitario);
+      if (!Number.isFinite(valor) || valor <= 0) continue;
+      if (p.tipo_roupa_id) precoMap[p.tipo_roupa_id] = valor;
+      const nome = p.tipos_roupa?.nome;
+      if (nome) precoPorNome[String(nome).trim().toLowerCase()] = valor;
+    }
+    const acharPreco = (tipoId: string | null | undefined, nome: string) => {
+      if (tipoId && precoMap[tipoId] != null) return precoMap[tipoId];
+      const byName = precoPorNome[String(nome).trim().toLowerCase()];
+      return byName != null ? byName : null;
+    };
 
     const rows: Linha[] = pedidos.map((p) => {
       const saidas = itensSaida.filter((i) => i.pedido_id === p.id);
