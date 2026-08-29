@@ -135,14 +135,20 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
       }
 
       const itens = Object.values(agrupado);
+      const peso = Number(p.peso_motorista_kg ?? p.peso_recebido_producao ?? p.peso_kg ?? 0) || 0;
+      const porPeso = p.tipo_cobranca === "peso" && valorKgCliente != null && valorKgCliente > 0;
       return {
         id: p.id,
         numero_pedido: p.numero_pedido,
         data: p.coletado_em || p.criado_em,
         itens,
         pecas: itens.reduce((s, i) => s + i.quantidade, 0),
-        peso: Number(p.peso_recebido_producao ?? p.peso_kg ?? 0),
-        total: itens.reduce((s, i) => s + i.subtotal, 0),
+        peso,
+        total: porPeso
+          ? peso * (valorKgCliente as number)
+          : itens.reduce((s, i) => s + i.subtotal, 0),
+        porPeso,
+        valorKg: porPeso ? (valorKgCliente as number) : null,
       };
     });
 
