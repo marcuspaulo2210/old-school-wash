@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { registrarMudancaStatus } from "@/lib/statusHistory";
+import { liberarDivergenciaParaEntrega, devolverDivergenciaParaProducao } from "@/lib/divergencia";
 import AppLayout from "@/components/AppLayout";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
@@ -26,6 +27,7 @@ interface Pedido {
   tipo_cobranca: string;
   obs_cliente: string | null;
   obs_motorista: string | null;
+  obs_producao: string | null;
   quem_contou: string;
   peso_kg: number | null;
   peso_informado_cliente: number | null;
@@ -83,8 +85,8 @@ const ProducaoDashboard = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
-      .in("status", ["coletado", "em_producao", "embalado"])
+      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, obs_producao, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
+      .in("status", ["coletado", "em_producao", "embalado", "divergencia"])
       .order("criado_em", { ascending: true });
     const pedidos = ((data as unknown as Pedido[]) || []).filter(p => !["pronto_para_entrega", "saiu_para_entrega", "entregue"].includes(p.status));
     const missing = Array.from(new Set(pedidos.filter(p => !p.clientes && p.cliente_id).map(p => p.cliente_id)));
@@ -128,9 +130,10 @@ const ProducaoDashboard = () => {
     return true;
   });
 
-  // Separate entry orders vs production/embalado
+  // Separate entry orders vs production/embalado vs divergências
   const entryOrders = filteredOrders.filter(o => o.status === "coletado");
   const productionOrders = filteredOrders.filter(o => o.status === "em_producao" || o.status === "embalado");
+  const divergenceOrders = filteredOrders.filter(o => o.status === "divergencia");
 
   const entryGroups = getGroups(entryOrders);
   const productionGroups = getGroups(productionOrders);
@@ -372,6 +375,35 @@ const ProducaoDashboard = () => {
     setConfirmation({ pedido, variant: "success", title: "Liberado para Entrega" });
   };
 
+  const handleLiberarDivergencia = async (order: Pedido) => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await liberarDivergenciaParaEntrega(order.id, order.numero_pedido, user.id);
+    setSaving(false);
+    if (error) {
+      setConfirmation({ pedido: order.numero_pedido, variant: "danger", title: `Erro: ${error.message}` });
+      return;
+    }
+    setOrders(prev => prev.filter(p => p.id !== order.id));
+    setConfirmation({ pedido: order.numero_pedido, variant: "success", title: "Divergência Resolvida — Liberado para Entrega" });
+    setTimeout(() => fetchOrders(), 800);
+  };
+
+  const handleDevolverProducao = async (order: Pedido) => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await devolverDivergenciaParaProducao(order.id, user.id);
+    setSaving(false);
+    if (error) {
+      setConfirmation({ pedido: order.numero_pedido, variant: "danger", title: `Erro: ${error.message}` });
+      return;
+    }
+    setConfirmation({ pedido: order.numero_pedido, variant: "success", title: "Devolvido para Produção" });
+    fetchOrders();
+  };
+
+
+
   const renderClientGroup = (group: ClienteGroup, showFinalize: boolean) => {
     const badge = tipoBadge(group.tipo);
     const embaladoCount = group.pedidos.filter(p => p.status === "embalado").length;
@@ -486,6 +518,10 @@ const ProducaoDashboard = () => {
             <CheckCircle className="w-4 h-4" />
             Produção ({productionOrders.length})
           </TabsTrigger>
+          <TabsTrigger value="divergencias" className="flex-1 gap-1">
+            <AlertTriangle className="w-4 h-4" />
+            Divergências ({divergenceOrders.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="entrada">
@@ -507,6 +543,65 @@ const ProducaoDashboard = () => {
             <div className="empty-state"><div className="empty-state-icon">🏭</div><p className="empty-state-text">Nenhum pedido em produção</p></div>
           ) : (
             <div className="space-y-2">{productionGroups.map(g => renderClientGroup(g, true))}</div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="divergencias">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Pedidos com divergência — aguardando resolução
+          </h3>
+          {divergenceOrders.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">✓</div><p className="empty-state-text">Nenhuma divergência pendente</p></div>
+          ) : (
+            <div className="space-y-2">
+              {divergenceOrders.map(order => {
+                const b = tipoBadge(order.clientes?.tipo || "clinica");
+                return (
+                  <div key={order.id} className="rounded-xl border p-4 space-y-3" style={{ background: "rgba(224,80,80,0.05)", borderColor: "rgba(224,80,80,0.3)" }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <button className="text-left flex-1" onClick={() => openOrder(order)}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded" style={{ background: b.bg, color: b.color }}>{b.label}</span>
+                          <span className="font-mono text-sm font-bold" style={{ color: "#5b8df6" }}>{order.numero_pedido}</span>
+                        </div>
+                        <p className="text-sm font-bold text-foreground">{order.clientes?.nome || "Sem cliente"}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {order.tipo_cobranca === "peso"
+                            ? `${order.peso_recebido_producao || order.peso_informado_cliente || order.peso_kg || 0} kg`
+                            : "Conferência por peça"}
+                        </p>
+                      </button>
+                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded shrink-0" style={{ background: "rgba(224,80,80,0.15)", color: "#e05050", border: "1px solid rgba(224,80,80,0.35)" }}>
+                        Divergência
+                      </span>
+                    </div>
+
+                    {order.obs_producao && (
+                      <p className="text-xs text-muted-foreground bg-secondary rounded-lg p-2">🏭 {order.obs_producao}</p>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        className="flex-1 py-2 px-3 text-xs font-bold rounded-lg text-white flex items-center justify-center gap-1 disabled:opacity-60"
+                        style={{ background: "#34c97a" }}
+                        disabled={saving}
+                        onClick={() => handleLiberarDivergencia(order)}
+                      >
+                        <Truck className="w-3.5 h-3.5" /> Resolver e liberar para entrega
+                      </button>
+                      <button
+                        className="flex-1 py-2 px-3 text-xs font-bold rounded-lg flex items-center justify-center gap-1 disabled:opacity-60"
+                        style={{ background: "rgba(240,160,32,0.15)", color: "#f0a020", border: "1px solid rgba(240,160,32,0.35)" }}
+                        disabled={saving}
+                        onClick={() => handleDevolverProducao(order)}
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5" /> Devolver para produção
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </TabsContent>
       </Tabs>
