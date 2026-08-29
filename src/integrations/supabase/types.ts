@@ -995,6 +995,15 @@ export type Database = {
         Returns: boolean
       }
       nome_motorista: { Args: { _id: string }; Returns: string }
+      notificar_motorista_pedido: {
+        Args: {
+          _mensagem: string
+          _pedido_id: string
+          _tipo?: string
+          _titulo: string
+        }
+        Returns: undefined
+      }
       registrar_tentativa_login: {
         Args: { _nome_clinica: string }
         Returns: undefined
