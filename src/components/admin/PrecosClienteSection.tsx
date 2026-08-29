@@ -102,7 +102,16 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
         setSaving(false);
         return;
       }
-      const { error: errCli } = await db.from("clientes").update({ tarifa_minima: tm }).eq("id", clienteId);
+      const vk = valorPorKg.trim() ? parse(valorPorKg) : null;
+      if (vk !== null && (Number.isNaN(vk) || vk < 0)) {
+        toast.error("Valor por kg inválido");
+        setSaving(false);
+        return;
+      }
+      const { error: errCli } = await db
+        .from("clientes")
+        .update({ tarifa_minima: tm, valor_por_kg: vk })
+        .eq("id", clienteId);
       if (errCli) throw errCli;
 
       toast.success("Tabela de preços salva!");
