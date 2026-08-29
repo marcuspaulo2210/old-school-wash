@@ -4,7 +4,7 @@ import { Printer, Receipt, X, ChevronDown, ChevronRight, AlertTriangle } from "l
 import { toast } from "sonner";
 import logo from "@/assets/amana-logo.png";
 
-interface ClienteOpt { id: string; nome: string; tipo?: string; tipo_cobranca?: string; tarifa_minima?: number | null; }
+interface ClienteOpt { id: string; nome: string; tipo?: string; tipo_cobranca?: string; tarifa_minima?: number | null; valor_por_kg?: number | null; }
 
 interface ItemLinha {
   nome: string;
