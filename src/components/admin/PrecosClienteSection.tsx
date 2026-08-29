@@ -6,6 +6,7 @@ import { toast } from "sonner";
 interface Props {
   clienteId: string;
   tarifaMinimaInicial: number | null;
+  valorPorKgInicial?: number | null;
 }
 
 interface TipoRow {
