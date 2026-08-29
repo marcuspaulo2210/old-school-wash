@@ -84,7 +84,7 @@ const ProducaoDashboard = () => {
     const { data } = await supabase
       .from("pedidos")
       .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
-      .in("status", ["coletado", "em_producao", "embalado"])
+      .in("status", ["coletado", "em_producao", "embalado", "divergencia"])
       .order("criado_em", { ascending: true });
     const pedidos = ((data as unknown as Pedido[]) || []).filter(p => !["pronto_para_entrega", "saiu_para_entrega", "entregue"].includes(p.status));
     const missing = Array.from(new Set(pedidos.filter(p => !p.clientes && p.cliente_id).map(p => p.cliente_id)));
