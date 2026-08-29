@@ -39,6 +39,7 @@ export type Database = {
           tentativas_login: number
           tipo: Database["public"]["Enums"]["tipo_cliente"]
           tipo_cobranca: Database["public"]["Enums"]["tipo_cobranca"]
+          valor_por_kg: number | null
         }
         Insert: {
           ativo?: boolean
@@ -64,6 +65,7 @@ export type Database = {
           tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
+          valor_por_kg?: number | null
         }
         Update: {
           ativo?: boolean
@@ -89,6 +91,7 @@ export type Database = {
           tentativas_login?: number
           tipo?: Database["public"]["Enums"]["tipo_cliente"]
           tipo_cobranca?: Database["public"]["Enums"]["tipo_cobranca"]
+          valor_por_kg?: number | null
         }
         Relationships: [
           {

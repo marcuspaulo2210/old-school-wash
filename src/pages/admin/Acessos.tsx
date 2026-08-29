@@ -99,7 +99,7 @@ const Acessos = () => {
   const fetchAll = async () => {
     setLoading(true);
     const [{ data: cls }, { data: us }, { data: rs }] = await Promise.all([
-      supabase.from("clientes").select("id, nome, tipo, email, telefone, ativo, auth_user_id, rota_id, motorista_id, tarifa_minima").order("nome"),
+      supabase.from("clientes").select("id, nome, tipo, email, telefone, ativo, auth_user_id, rota_id, motorista_id, tarifa_minima, valor_por_kg").order("nome"),
       supabase.from("usuarios").select("id, nome, email, perfil, ativo, telefone").order("nome"),
       supabase.from("rotas").select("id, nome, periodo, dias_semana").eq("ativo", true).order("nome"),
     ]);
@@ -536,6 +536,7 @@ const Acessos = () => {
               <PrecosClienteSection
                 clienteId={editTarget.id}
                 tarifaMinimaInicial={editTarget.raw?.tarifa_minima ?? null}
+                valorPorKgInicial={editTarget.raw?.valor_por_kg ?? null}
               />
             )}
 

@@ -4,7 +4,7 @@ import { Printer, Receipt, X, ChevronDown, ChevronRight, AlertTriangle } from "l
 import { toast } from "sonner";
 import logo from "@/assets/amana-logo.png";
 
-interface ClienteOpt { id: string; nome: string; tipo?: string; tipo_cobranca?: string; tarifa_minima?: number | null; }
+interface ClienteOpt { id: string; nome: string; tipo?: string; tipo_cobranca?: string; tarifa_minima?: number | null; valor_por_kg?: number | null; }
 
 interface ItemLinha {
   nome: string;
@@ -21,6 +21,8 @@ interface Linha {
   pecas: number;
   peso: number;
   total: number;
+  porPeso: boolean;
+  valorKg: number | null;
 }
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -56,6 +58,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
 
   const cliente = clientes.find((c) => c.id === clienteId);
   const tarifaMinima = cliente?.tarifa_minima != null ? Number(cliente.tarifa_minima) : null;
+  const valorKgCliente = cliente?.valor_por_kg != null ? Number(cliente.valor_por_kg) : null;
 
   const gerar = async () => {
     if (!clienteId) { toast.error("Selecione um cliente"); return; }
@@ -64,7 +67,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
 
     const { data: peds, error } = await db
       .from("pedidos")
-      .select("id, numero_pedido, criado_em, coletado_em, entregue_em, peso_kg, peso_recebido_producao, tipo_cobranca")
+      .select("id, numero_pedido, criado_em, coletado_em, entregue_em, peso_kg, peso_recebido_producao, peso_motorista_kg, tipo_cobranca")
       .eq("cliente_id", clienteId)
       .eq("status", "entregue")
       .gte("criado_em", start)
@@ -133,14 +136,20 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
       }
 
       const itens = Object.values(agrupado);
+      const peso = Number(p.peso_motorista_kg ?? p.peso_recebido_producao ?? p.peso_kg ?? 0) || 0;
+      const porPeso = p.tipo_cobranca === "peso" && valorKgCliente != null && valorKgCliente > 0;
       return {
         id: p.id,
         numero_pedido: p.numero_pedido,
         data: p.coletado_em || p.criado_em,
         itens,
         pecas: itens.reduce((s, i) => s + i.quantidade, 0),
-        peso: Number(p.peso_recebido_producao ?? p.peso_kg ?? 0),
-        total: itens.reduce((s, i) => s + i.subtotal, 0),
+        peso,
+        total: porPeso
+          ? peso * (valorKgCliente as number)
+          : itens.reduce((s, i) => s + i.subtotal, 0),
+        porPeso,
+        valorKg: porPeso ? (valorKgCliente as number) : null,
       };
     });
 
@@ -151,7 +160,9 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
     if (!rows.length) toast.info("Nenhum pedido entregue neste período");
   };
 
-  const subtotal = linhas.reduce((s, l) => s + l.total, 0);
+  const subtotalPeso = linhas.reduce((s, l) => s + (l.porPeso ? l.total : 0), 0);
+  const subtotalPecas = linhas.reduce((s, l) => s + (l.porPeso ? 0 : l.total), 0);
+  const subtotal = subtotalPecas + subtotalPeso;
   const totalPecas = linhas.reduce((s, l) => s + l.pecas, 0);
   const totalPeso = linhas.reduce((s, l) => s + l.peso, 0);
   const aplicarMinima = tarifaMinima != null && tarifaMinima > 0 && subtotal < tarifaMinima;
@@ -241,14 +252,21 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                         <td style={{ padding: "8px" }}>{new Date(l.data).toLocaleDateString("pt-BR")}</td>
                         <td style={{ padding: "8px", fontWeight: 700 }}>{l.numero_pedido}</td>
                         <td style={{ padding: "8px" }}>
-                          <button
-                            className="btn-imprimir"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#1e4fa3", fontWeight: 600 }}
-                            onClick={() => setExpandido((e) => ({ ...e, [l.id]: !e[l.id] }))}
-                          >
-                            {expandido[l.id] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                            {l.itens.length} {l.itens.length === 1 ? "tipo de peça" : "tipos de peça"}
-                          </button>
+                          {l.porPeso ? (
+                            <span>
+                              {l.peso.toFixed(3).replace(".", ",")} kg × R$ {brl(l.valorKg as number)}/kg ={" "}
+                              <strong>R$ {brl(l.total)}</strong>
+                            </span>
+                          ) : (
+                            <button
+                              className="btn-imprimir"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#1e4fa3", fontWeight: 600 }}
+                              onClick={() => setExpandido((e) => ({ ...e, [l.id]: !e[l.id] }))}
+                            >
+                              {expandido[l.id] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                              {l.itens.length} {l.itens.length === 1 ? "tipo de peça" : "tipos de peça"}
+                            </button>
+                          )}
                         </td>
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: 700 }}>R$ {brl(l.total)}</td>
                       </tr>
@@ -273,11 +291,19 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                   ))}
                 </tbody>
                 <tfoot>
+                  <tr>
+                    <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right", color: "#444", borderTop: "2px solid #1e4fa3" }}>Subtotal peças:</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: "#444", borderTop: "2px solid #1e4fa3" }}>R$ {brl(subtotalPecas)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right", color: "#444" }}>Subtotal peso:</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", color: "#444" }}>R$ {brl(subtotalPeso)}</td>
+                  </tr>
                   {aplicarMinima ? (
                     <>
                       <tr>
-                        <td colSpan={3} style={{ padding: "8px", textAlign: "right", color: "#666", borderTop: "2px solid #1e4fa3" }}>Subtotal calculado:</td>
-                        <td style={{ padding: "8px", textAlign: "right", color: "#666", borderTop: "2px solid #1e4fa3" }}>R$ {brl(subtotal)}</td>
+                        <td colSpan={3} style={{ padding: "8px", textAlign: "right", color: "#666" }}>Subtotal calculado:</td>
+                        <td style={{ padding: "8px", textAlign: "right", color: "#666" }}>R$ {brl(subtotal)}</td>
                       </tr>
                       <tr>
                         <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right" }}>Tarifa mínima:</td>
@@ -290,10 +316,10 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                     </>
                   ) : (
                     <tr>
-                      <td colSpan={3} style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56", borderTop: "2px solid #1e4fa3" }}>
+                      <td colSpan={3} style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56" }}>
                         TOTAL DO PERÍODO:
                       </td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56", borderTop: "2px solid #1e4fa3" }}>
+                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56" }}>
                         R$ {brl(totalCobrado)}
                       </td>
                     </tr>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 interface Props {
   clienteId: string;
   tarifaMinimaInicial: number | null;
+  valorPorKgInicial?: number | null;
 }
 
 interface TipoRow {
@@ -15,11 +16,14 @@ interface TipoRow {
 
 const db = supabase as any;
 
-const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial }: Props) => {
+const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicial }: Props) => {
   const [tipos, setTipos] = useState<TipoRow[]>([]);
   const [precos, setPrecos] = useState<Record<string, string>>({});
   const [tarifaMinima, setTarifaMinima] = useState(
     tarifaMinimaInicial != null ? String(tarifaMinimaInicial) : ""
+  );
+  const [valorPorKg, setValorPorKg] = useState(
+    valorPorKgInicial != null ? String(valorPorKgInicial).replace(".", ",") : ""
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,7 +102,16 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial }: Props) => {
         setSaving(false);
         return;
       }
-      const { error: errCli } = await db.from("clientes").update({ tarifa_minima: tm }).eq("id", clienteId);
+      const vk = valorPorKg.trim() ? parse(valorPorKg) : null;
+      if (vk !== null && (Number.isNaN(vk) || vk < 0)) {
+        toast.error("Valor por kg inválido");
+        setSaving(false);
+        return;
+      }
+      const { error: errCli } = await db
+        .from("clientes")
+        .update({ tarifa_minima: tm, valor_por_kg: vk })
+        .eq("id", clienteId);
       if (errCli) throw errCli;
 
       toast.success("Tabela de preços salva!");
@@ -134,6 +147,20 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial }: Props) => {
           ))}
         </div>
       )}
+
+      <div>
+        <label className="field-label">Valor por kg lavado (R$)</label>
+        <input
+          className="field-input font-mono"
+          inputMode="decimal"
+          placeholder="Ex: 12,00"
+          value={valorPorKg}
+          onChange={(e) => setValorPorKg(e.target.value)}
+        />
+        <p className="text-[11px] text-muted-foreground mt-1">
+          Para clientes cobrados por peso. Deixe em branco se a cobrança for por peça.
+        </p>
+      </div>
 
       <div>
         <label className="field-label">Tarifa mínima mensal (R$)</label>

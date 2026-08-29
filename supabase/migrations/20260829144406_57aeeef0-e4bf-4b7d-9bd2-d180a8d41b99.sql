@@ -1,0 +1,1 @@
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS valor_por_kg numeric(10,2);
