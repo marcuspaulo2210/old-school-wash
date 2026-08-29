@@ -66,7 +66,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
 
     const { data: peds, error } = await db
       .from("pedidos")
-      .select("id, numero_pedido, criado_em, coletado_em, entregue_em, peso_kg, peso_recebido_producao, tipo_cobranca")
+      .select("id, numero_pedido, criado_em, coletado_em, entregue_em, peso_kg, peso_recebido_producao, peso_motorista_kg, tipo_cobranca")
       .eq("cliente_id", clienteId)
       .eq("status", "entregue")
       .gte("criado_em", start)
