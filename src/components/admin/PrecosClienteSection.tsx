@@ -36,7 +36,9 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial }: Props) => {
       setTipos((tps as TipoRow[]) || []);
       const map: Record<string, string> = {};
       for (const p of (prs as any[]) || []) {
-        map[p.tipo_roupa_id] = String(Number(p.preco_unitario)).replace(".", ",");
+        const n = Number(p.preco_unitario);
+        if (!Number.isFinite(n) || n <= 0) continue;
+        map[p.tipo_roupa_id] = String(n).replace(".", ",");
       }
       setPrecos(map);
       setLoading(false);
