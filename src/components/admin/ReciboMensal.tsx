@@ -302,8 +302,8 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                   {aplicarMinima ? (
                     <>
                       <tr>
-                        <td colSpan={3} style={{ padding: "8px", textAlign: "right", color: "#666", borderTop: "2px solid #1e4fa3" }}>Subtotal calculado:</td>
-                        <td style={{ padding: "8px", textAlign: "right", color: "#666", borderTop: "2px solid #1e4fa3" }}>R$ {brl(subtotal)}</td>
+                        <td colSpan={3} style={{ padding: "8px", textAlign: "right", color: "#666" }}>Subtotal calculado:</td>
+                        <td style={{ padding: "8px", textAlign: "right", color: "#666" }}>R$ {brl(subtotal)}</td>
                       </tr>
                       <tr>
                         <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right" }}>Tarifa mínima:</td>
@@ -316,10 +316,10 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                     </>
                   ) : (
                     <tr>
-                      <td colSpan={3} style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56", borderTop: "2px solid #1e4fa3" }}>
+                      <td colSpan={3} style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56" }}>
                         TOTAL DO PERÍODO:
                       </td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56", borderTop: "2px solid #1e4fa3" }}>
+                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: "#127a56" }}>
                         R$ {brl(totalCobrado)}
                       </td>
                     </tr>

@@ -14,7 +14,7 @@ interface Lancamento {
   motorista_id: string;
   pedido_id: string;
 }
-interface ClienteLite { id: string; nome: string; tipo: string; preco_kg: number | null; preco_peca: number | null; tipo_cobranca: string; tarifa_minima: number | null; }
+interface ClienteLite { id: string; nome: string; tipo: string; preco_kg: number | null; preco_peca: number | null; tipo_cobranca: string; tarifa_minima: number | null; valor_por_kg: number | null; }
 interface UsuarioLite { id: string; nome: string; }
 interface PedidoLite {
   id: string; numero_pedido: string; status: string; criado_em: string; cliente_id: string;
@@ -48,7 +48,7 @@ const Analise = () => {
       supabase.from("lancamentos_peso").select("*").gte("criado_em", start).lt("criado_em", end),
       supabase.from("pedidos").select("id, numero_pedido, status, criado_em, cliente_id, peso_kg, peso_informado_cliente, peso_motorista_kg, peso_recebido_producao")
         .gte("criado_em", start).lt("criado_em", end),
-      supabase.from("clientes").select("id, nome, tipo, preco_kg, preco_peca, tipo_cobranca, tarifa_minima"),
+      supabase.from("clientes").select("id, nome, tipo, preco_kg, preco_peca, tipo_cobranca, tarifa_minima, valor_por_kg"),
       supabase.from("usuarios").select("id, nome").eq("perfil", "motorista"),
     ]);
     const { data: prs } = await (supabase as any).from("precos_cliente").select("cliente_id");
