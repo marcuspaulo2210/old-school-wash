@@ -27,6 +27,7 @@ interface Pedido {
   tipo_cobranca: string;
   obs_cliente: string | null;
   obs_motorista: string | null;
+  obs_producao: string | null;
   quem_contou: string;
   peso_kg: number | null;
   peso_informado_cliente: number | null;
@@ -84,7 +85,7 @@ const ProducaoDashboard = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
+      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, obs_producao, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
       .in("status", ["coletado", "em_producao", "embalado", "divergencia"])
       .order("criado_em", { ascending: true });
     const pedidos = ((data as unknown as Pedido[]) || []).filter(p => !["pronto_para_entrega", "saiu_para_entrega", "entregue"].includes(p.status));
