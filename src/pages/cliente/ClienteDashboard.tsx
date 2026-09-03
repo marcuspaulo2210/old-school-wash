@@ -363,8 +363,19 @@ const ClienteDashboard = () => {
       return;
     }
     if (!isHospital && items.length === 0) return;
-    setSaving(true);
     const quemContou = isHospital ? "lavanderia" : "cliente";
+    if (editingDraftId) {
+      await updateDraft(isDraft, {
+        tipo_cobranca: "peca",
+        obs_cliente: notes || null,
+        quem_contou: quemContou,
+        peso_kg: null,
+        peso_informado_cliente: isHospital && pesoEstimado ? parseFloat(pesoEstimado) : null,
+      });
+      return;
+    }
+    setSaving(true);
+
     const { data: order, error } = await supabase
       .from("pedidos")
       .insert({
