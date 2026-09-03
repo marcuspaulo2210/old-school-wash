@@ -9,7 +9,7 @@ import OrderProgress, { ProgressStep } from "@/components/OrderProgress";
 import OrderTimeline from "@/components/OrderTimeline";
 import ClienteSaldoRoupas from "@/components/ClienteSaldoRoupas";
 import NotificationBell from "@/components/NotificationBell";
-import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar, Trash2, Pencil } from "lucide-react";
 import { calcDataColeta, formatDataColeta, toIsoDate, RotaLite } from "@/lib/coletaDate";
 
 interface TipoRoupa { id: string; nome: string; }
@@ -323,6 +323,20 @@ const ClienteDashboard = () => {
     setExpandedOrder(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const handleDeleteDraft = async (pedidoId: string) => {
+    if (!window.confirm("Deseja excluir este rascunho? Esta ação não pode ser desfeita.")) return;
+    setLoadingDraft(true);
+    const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId).eq("rascunho", true);
+    setLoadingDraft(false);
+    if (error) {
+      setSubmitError("Falha ao excluir rascunho: " + error.message);
+      return;
+    }
+    await refreshOrders();
+  };
+
+
 
   const updateDraft = async (isDraft: boolean, payload: Record<string, unknown>) => {
     if (!user || !editingDraftId) return false;
@@ -842,14 +856,23 @@ const ClienteDashboard = () => {
                   </button>
 
                   {order.rascunho && (
-                    <div className="px-4 pb-4 -mt-1">
+                    <div className="px-4 pb-4 space-y-2">
                       <button
-                        className="w-full py-2.5 text-sm font-bold rounded-lg transition-all text-white"
+                        className="w-full py-2.5 text-sm font-bold rounded-lg transition-all text-white flex items-center justify-center gap-2"
                         style={{ background: "#5b8df6" }}
                         onClick={() => handleEditDraft(order.id)}
                         disabled={loadingDraft}
                       >
+                        <Pencil className="w-4 h-4" />
                         {loadingDraft ? "Carregando..." : "Editar rascunho"}
+                      </button>
+                      <button
+                        className="w-full py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                        style={{ background: "rgba(224,80,80,0.12)", color: "#e05050", border: "1px solid rgba(224,80,80,0.3)" }}
+                        onClick={() => handleDeleteDraft(order.id)}
+                        disabled={loadingDraft}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Excluir rascunho
                       </button>
                     </div>
                   )}
