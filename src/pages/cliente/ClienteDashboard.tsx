@@ -555,7 +555,7 @@ const ClienteDashboard = () => {
         </button>
       ) : (
         <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card p-5 mb-5 space-y-4">
-          <h3 className="text-sm font-bold text-foreground">Novo Pedido</h3>
+          <h3 className="text-sm font-bold text-foreground">{editingDraftId ? "Editar rascunho" : "Novo Pedido"}</h3>
 
           <div>
             <label className="field-label">Clínica / Hospital</label>
