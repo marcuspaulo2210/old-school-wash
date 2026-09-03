@@ -171,8 +171,11 @@ const ProducaoDashboard = () => {
   const addProdItem = () => setNewProdItems([...newProdItems, { descricao: "", quantidade: 1, observacao: "" }]);
   const removeProdItem = (idx: number) => setNewProdItems(newProdItems.filter((_, i) => i !== idx));
 
-  const weightDiff = selectedOrder?.peso_informado_cliente && pesoRecebido
-    ? parseFloat(pesoRecebido) - selectedOrder.peso_informado_cliente
+  // A produção não lança peso — apenas visualiza o registrado pelo motorista
+  const weightDiff: number | null = null;
+  const isPesoOrder = selectedOrder?.tipo_cobranca === "peso";
+  const pesoColetadoMotorista = selectedOrder
+    ? (selectedOrder.peso_motorista_kg ?? selectedOrder.peso_informado_cliente ?? selectedOrder.peso_kg ?? null)
     : null;
 
   const handleSaveEntry = async () => {
