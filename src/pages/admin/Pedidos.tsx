@@ -269,7 +269,7 @@ const AdminPedidos = () => {
                         }}
                         onClick={(e) => e.stopPropagation()}
                       />
-                    ) : order.valor_total != null ? (
+                    ) : order.valor_total != null && Number(order.valor_total) > 0 ? (
                       <span className="font-bold cursor-pointer" style={{ color: "#2dbfa0" }}>
                         R$ {Number(order.valor_total).toFixed(2).replace(".", ",")}
                       </span>
