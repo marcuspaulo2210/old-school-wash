@@ -840,6 +840,20 @@ const ClienteDashboard = () => {
                     </div>
                   </button>
 
+                  {order.rascunho && (
+                    <div className="px-4 pb-4 -mt-1">
+                      <button
+                        className="w-full py-2.5 text-sm font-bold rounded-lg transition-all text-white"
+                        style={{ background: "#5b8df6" }}
+                        onClick={() => handleEditDraft(order.id)}
+                        disabled={loadingDraft}
+                      >
+                        {loadingDraft ? "Carregando..." : "Editar rascunho"}
+                      </button>
+                    </div>
+                  )}
+
+
                   {isExpanded && !order.rascunho && (
                     <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
                       <OrderProgress
