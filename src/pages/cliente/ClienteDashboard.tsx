@@ -216,12 +216,18 @@ const ClienteDashboard = () => {
     if (allIds.length > 0) {
       const { data: itens } = await supabase
         .from("itens_pedido")
-        .select("pedido_id, quantidade_original, descricao_livre, tipos_roupa(nome)")
+        .select("pedido_id, quantidade_original, descricao_livre, tipo_roupa_id, tipos_roupa(id, nome)")
         .in("pedido_id", allIds);
       const mp: Record<string, { nome: string; quantidade: number }[]> = {};
       (itens as any[] || []).forEach((it) => {
+        const nome = it.tipos_roupa?.nome || it.descricao_livre || "Item";
         const arr = mp[it.pedido_id] || [];
-        arr.push({ nome: it.tipos_roupa?.nome || it.descricao_livre || "Item", quantidade: it.quantidade_original });
+        const existing = arr.find((x) => x.nome === nome);
+        if (existing) {
+          existing.quantidade += Number(it.quantidade_original || 0);
+        } else {
+          arr.push({ nome, quantidade: Number(it.quantidade_original || 0) });
+        }
         mp[it.pedido_id] = arr;
       });
       setItensPedidoMap(mp);
@@ -229,12 +235,18 @@ const ClienteDashboard = () => {
     if (allIds.length > 0) {
       const { data: saidas } = await supabase
         .from("itens_saida")
-        .select("pedido_id, quantidade, descricao_livre, tipos_roupa(nome)")
+        .select("pedido_id, quantidade, descricao_livre, tipo_roupa_id, tipos_roupa(id, nome)")
         .in("pedido_id", allIds);
       const m: Record<string, { nome: string; quantidade: number }[]> = {};
       (saidas as any[] || []).forEach((s) => {
+        const nome = s.tipos_roupa?.nome || s.descricao_livre || "Item";
         const arr = m[s.pedido_id] || [];
-        arr.push({ nome: s.tipos_roupa?.nome || s.descricao_livre || "Item", quantidade: s.quantidade });
+        const existing = arr.find((x) => x.nome === nome);
+        if (existing) {
+          existing.quantidade += Number(s.quantidade || 0);
+        } else {
+          arr.push({ nome, quantidade: Number(s.quantidade || 0) });
+        }
         m[s.pedido_id] = arr;
       });
       setItensSaidaMap(m);
