@@ -712,38 +712,8 @@ const ProducaoDashboard = () => {
               </>
             )}
 
-            {/* Tab: Registrar por Peso */}
-            {prodTab === "peso" && (
-              <>
-                <div>
-                  <label className="field-label flex items-center gap-2">
-                    <Scale className="w-4 h-4" /> Peso recebido (kg)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    className="field-input font-mono"
-                    value={pesoRecebido}
-                    onChange={(e) => setPesoRecebido(e.target.value)}
-                    placeholder="Peso conferido na balança"
-                  />
-                </div>
 
-                {weightDiff !== null && pesoRecebido && (
-                  <div className="rounded-lg px-4 py-3" style={{ background: weightDiff === 0 ? "rgba(52,201,122,0.08)" : "rgba(224,80,80,0.08)" }}>
-                    {weightDiff === 0 ? (
-                      <p className="flex items-center gap-2 text-sm font-bold" style={{ color: "#34c97a" }}>
-                        <CheckCircle className="w-4 h-4" /> Peso conferido ✓
-                      </p>
-                    ) : (
-                      <p className="text-sm font-bold font-mono" style={{ color: "#e05050" }}>
-                        Diferença: {weightDiff > 0 ? "+" : ""}{weightDiff.toFixed(3)} kg
-                      </p>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+
 
             <div>
               <label className="field-label">Observações da produção</label>
