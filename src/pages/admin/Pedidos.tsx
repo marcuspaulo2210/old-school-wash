@@ -243,7 +243,7 @@ const AdminPedidos = () => {
                     )}
                   </td>
                   <td className="text-muted-foreground capitalize">{order.quem_contou}</td>
-                  <td className="text-right font-mono">{order.peso_kg ? `${order.peso_kg} kg` : "—"}</td>
+                  <td className="text-right font-mono">{formatPeso(order)}</td>
                   <td className="text-right font-mono" onClick={(e) => { e.stopPropagation(); if (editingValorId !== order.id) startEditValor(order); }}>
                     {editingValorId === order.id ? (
                       <input
