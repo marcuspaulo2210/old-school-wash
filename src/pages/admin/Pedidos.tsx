@@ -314,8 +314,16 @@ const AdminPedidos = () => {
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : order.valor_total != null && Number(order.valor_total) > 0 ? (
-                      <span className="font-bold cursor-pointer" style={{ color: "#2dbfa0" }}>
+                      <span className="inline-flex items-center gap-1 font-bold cursor-pointer" style={{ color: "#2dbfa0" }}>
                         R$ {Number(order.valor_total).toFixed(2).replace(".", ",")}
+                        <Pencil className="w-3 h-3 opacity-60" />
+                      </span>
+                    ) : order.valor_calculado != null && order.valor_calculado > 0 ? (
+                      <span className="inline-flex flex-col items-end cursor-pointer leading-tight">
+                        <span className="font-bold" style={{ color: "#7fe3cd" }}>
+                          R$ {order.valor_calculado.toFixed(2).replace(".", ",")}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground">(calculado)</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-muted-foreground cursor-pointer">
