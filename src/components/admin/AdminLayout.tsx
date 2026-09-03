@@ -6,7 +6,6 @@ import {
   ClipboardList,
   AlertTriangle,
   Shirt,
-  ListChecks,
   Users,
   MapPin,
   LogOut,
