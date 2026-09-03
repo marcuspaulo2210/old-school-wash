@@ -787,7 +787,7 @@ const ClienteDashboard = () => {
               onClick={handleSaveDraft}
               disabled={saving}
             >
-              Salvar rascunho
+              {editingDraftId ? "Salvar rascunho" : "Salvar rascunho"}
             </button>
             <button
               className="flex-1 py-2.5 text-sm font-bold rounded-lg transition-all text-white"
@@ -805,7 +805,8 @@ const ClienteDashboard = () => {
             </div>
           )}
 
-          <button className="btn-ghost w-full" onClick={() => { setShowForm(false); setItems([]); setPesoKg(""); setPesoEstimado(""); }}>Cancelar</button>
+          <button className="btn-ghost w-full" onClick={() => { setShowForm(false); resetForm(); }}>Cancelar</button>
+
         </div>
       )}
 
