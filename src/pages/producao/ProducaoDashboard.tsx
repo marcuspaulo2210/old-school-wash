@@ -634,8 +634,19 @@ const ProducaoDashboard = () => {
               </div>
             )}
 
-            {/* Show client-reported weight for peso orders */}
-            {selectedOrder.peso_informado_cliente && (
+            {/* Peso coletado pelo motorista — somente leitura */}
+            {isPesoOrder && (
+              <div className="rounded-lg px-4 py-3" style={{ background: "rgba(240,160,32,0.08)" }}>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Somente leitura</p>
+                <p className="font-mono text-lg font-bold flex items-center gap-2" style={{ color: "#f0a020" }}>
+                  <Scale className="w-4 h-4" />
+                  Peso coletado pelo motorista: {pesoColetadoMotorista != null ? Number(pesoColetadoMotorista).toFixed(3) : "—"} kg
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">A produção apenas confirma o recebimento.</p>
+              </div>
+            )}
+
+            {!isPesoOrder && selectedOrder.peso_informado_cliente && (
               <div className="rounded-lg px-4 py-3" style={{ background: "rgba(240,160,32,0.08)" }}>
                 <p className="text-xs text-muted-foreground mb-1">(informado pelo cliente)</p>
                 <p className="font-mono text-lg font-bold" style={{ color: "#f0a020" }}>
@@ -644,34 +655,8 @@ const ProducaoDashboard = () => {
               </div>
             )}
 
-            {/* Production registration tabs */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setProdTab("pecas")}
-                className="flex-1 py-2 text-sm font-semibold rounded-[9px] transition-all"
-                style={{
-                  background: prodTab === "pecas" ? "#5b8df6" : "transparent",
-                  color: prodTab === "pecas" ? "#fff" : "#6b7190",
-                  border: prodTab === "pecas" ? "none" : "1px solid rgba(255,255,255,0.13)",
-                }}
-              >
-                Registrar por Peças
-              </button>
-              <button
-                onClick={() => setProdTab("peso")}
-                className="flex-1 py-2 text-sm font-semibold rounded-[9px] transition-all"
-                style={{
-                  background: prodTab === "peso" ? "#5b8df6" : "transparent",
-                  color: prodTab === "peso" ? "#fff" : "#6b7190",
-                  border: prodTab === "peso" ? "none" : "1px solid rgba(255,255,255,0.13)",
-                }}
-              >
-                Registrar por Peso
-              </button>
-            </div>
-
-            {/* Tab: Registrar por Peças */}
-            {prodTab === "pecas" && (
+            {/* Conferência por peças (clínica) */}
+            {!isPesoOrder && (
               <>
                 {items.length === 0 && newProdItems.length === 0 ? (
                   <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
