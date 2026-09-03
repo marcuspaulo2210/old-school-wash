@@ -322,6 +322,8 @@ const ClienteDashboard = () => {
     setShowForm(true);
     setExpandedOrder(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleDeleteDraft = async (pedidoId: string) => {
     if (!window.confirm("Deseja excluir este rascunho? Esta ação não pode ser desfeita.")) return;
     setLoadingDraft(true);
