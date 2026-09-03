@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge, { getStatusConfig } from "@/components/StatusBadge";
-import { ClipboardList, TruckIcon, Package, AlertTriangle, MessageSquare, KeyRound } from "lucide-react";
+import { ClipboardList, TruckIcon, Package, AlertTriangle, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 
 interface Order {
