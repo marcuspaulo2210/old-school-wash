@@ -9,7 +9,7 @@ import OrderProgress, { ProgressStep } from "@/components/OrderProgress";
 import OrderTimeline from "@/components/OrderTimeline";
 import ClienteSaldoRoupas from "@/components/ClienteSaldoRoupas";
 import NotificationBell from "@/components/NotificationBell";
-import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar, Trash2, Pencil } from "lucide-react";
 import { calcDataColeta, formatDataColeta, toIsoDate, RotaLite } from "@/lib/coletaDate";
 
 interface TipoRoupa { id: string; nome: string; }
@@ -322,7 +322,19 @@ const ClienteDashboard = () => {
     setShowForm(true);
     setExpandedOrder(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleDeleteDraft = async (pedidoId: string) => {
+    if (!window.confirm("Deseja excluir este rascunho? Esta ação não pode ser desfeita.")) return;
+    setLoadingDraft(true);
+    const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId).eq("rascunho", true);
+    setLoadingDraft(false);
+    if (error) {
+      setSubmitError("Falha ao excluir rascunho: " + error.message);
+      return;
+    }
+    await refreshOrders();
   };
+
+
 
   const updateDraft = async (isDraft: boolean, payload: Record<string, unknown>) => {
     if (!user || !editingDraftId) return false;
