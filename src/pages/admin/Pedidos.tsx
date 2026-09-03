@@ -41,7 +41,8 @@ interface Order {
   obs_producao: string | null;
   peso_kg: number | null;
   peso_motorista_kg: number | null;
-  itens_pedido?: { quantidade_original: number }[] | null;
+  itens_pedido?: { quantidade_original: number; tipo_roupa_id: string | null; descricao_livre: string | null }[] | null;
+  valor_calculado?: number | null;
   valor_total: number | null;
   motorista_id: string | null;
   cliente_id: string;
@@ -104,10 +105,53 @@ const AdminPedidos = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, peso_motorista_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo), usuarios!pedidos_motorista_id_fkey(nome), itens_pedido(quantidade_original)")
+      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, peso_motorista_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo), usuarios!pedidos_motorista_id_fkey(nome), itens_pedido(quantidade_original, tipo_roupa_id, descricao_livre)")
       .order("criado_em", { ascending: false })
       .limit(200);
-    setOrders((data as unknown as Order[]) || []);
+    const pedidos = (data as unknown as Order[]) || [];
+    if (pedidos.length === 0) { setOrders([]); return; }
+
+    const clienteIds = Array.from(new Set(pedidos.map((p) => p.cliente_id).filter(Boolean)));
+    const [{ data: precos }, { data: cls }] = await Promise.all([
+      supabase.from("precos_cliente").select("cliente_id, tipo_roupa_id, preco_unitario, tipos_roupa(nome)").in("cliente_id", clienteIds),
+      supabase.from("clientes").select("id, valor_por_kg, tarifa_minima").in("id", clienteIds),
+    ]);
+
+    const precoPorTipo = new Map<string, number>();
+    const precoPorNome = new Map<string, number>();
+    ((precos as any[]) || []).forEach((p) => {
+      const val = Number(p.preco_unitario) || 0;
+      if (val <= 0) return;
+      if (p.tipo_roupa_id) precoPorTipo.set(`${p.cliente_id}|${p.tipo_roupa_id}`, val);
+      const nome = p.tipos_roupa?.nome;
+      if (nome) precoPorNome.set(`${p.cliente_id}|${String(nome).trim().toLowerCase()}`, val);
+    });
+    const kgPorCliente = new Map<string, number>();
+    ((cls as any[]) || []).forEach((c) => {
+      const v = Number(c.valor_por_kg) || 0;
+      if (v > 0) kgPorCliente.set(c.id, v);
+    });
+
+    const withCalc = pedidos.map((o) => {
+      let calc: number | null = null;
+      if (o.tipo_cobranca === "peso") {
+        const kg = Number(o.peso_motorista_kg ?? o.peso_kg ?? 0);
+        const preco = kgPorCliente.get(o.cliente_id);
+        if (kg > 0 && preco) calc = kg * preco;
+      } else {
+        let total = 0;
+        (o.itens_pedido || []).forEach((it) => {
+          const qtd = Number(it.quantidade_original) || 0;
+          const preco =
+            (it.tipo_roupa_id ? precoPorTipo.get(`${o.cliente_id}|${it.tipo_roupa_id}`) : undefined) ??
+            (it.descricao_livre ? precoPorNome.get(`${o.cliente_id}|${it.descricao_livre.trim().toLowerCase()}`) : undefined);
+          if (preco) total += qtd * preco;
+        });
+        if (total > 0) calc = total;
+      }
+      return { ...o, valor_calculado: calc };
+    });
+    setOrders(withCalc);
   };
 
   useEffect(() => {
@@ -270,8 +314,16 @@ const AdminPedidos = () => {
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : order.valor_total != null && Number(order.valor_total) > 0 ? (
-                      <span className="font-bold cursor-pointer" style={{ color: "#2dbfa0" }}>
+                      <span className="inline-flex items-center gap-1 font-bold cursor-pointer" style={{ color: "#2dbfa0" }}>
                         R$ {Number(order.valor_total).toFixed(2).replace(".", ",")}
+                        <Pencil className="w-3 h-3 opacity-60" />
+                      </span>
+                    ) : order.valor_calculado != null && order.valor_calculado > 0 ? (
+                      <span className="inline-flex flex-col items-end cursor-pointer leading-tight">
+                        <span className="font-bold" style={{ color: "#7fe3cd" }}>
+                          R$ {order.valor_calculado.toFixed(2).replace(".", ",")}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground">(calculado)</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-muted-foreground cursor-pointer">
