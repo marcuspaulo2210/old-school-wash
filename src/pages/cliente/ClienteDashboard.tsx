@@ -11,6 +11,7 @@ import ClienteSaldoRoupas from "@/components/ClienteSaldoRoupas";
 import NotificationBell from "@/components/NotificationBell";
 import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar, Trash2, Pencil } from "lucide-react";
 import { calcDataColeta, formatDataColeta, toIsoDate, RotaLite } from "@/lib/coletaDate";
+import { toast } from "@/hooks/use-toast";
 
 interface TipoRoupa { id: string; nome: string; }
 interface ItemPedido { tipo_roupa_id: string; descricao_livre: string; quantidade_original: number; }
