@@ -200,8 +200,7 @@ const ProducaoDashboard = () => {
 
     await supabase.from("pedidos").update({
       obs_producao: productionNotes || null,
-      peso_recebido_producao: pesoRecebido ? parseFloat(pesoRecebido) : null,
-      tipo_registro_producao: prodTab,
+      tipo_registro_producao: selectedOrder.tipo_cobranca === "peso" ? "peso" : "pecas",
       status_entrada: "salvo",
     } as any).eq("id", selectedOrder.id);
 
@@ -241,8 +240,7 @@ const ProducaoDashboard = () => {
       status: newStatus as any,
       obs_producao: productionNotes || null,
       embalado_em: registerDivergence ? null : new Date().toISOString(),
-      peso_recebido_producao: pesoRecebido ? parseFloat(pesoRecebido) : null,
-      tipo_registro_producao: prodTab,
+      tipo_registro_producao: selectedOrder.tipo_cobranca === "peso" ? "peso" : "pecas",
       status_entrada: "confirmado",
     } as any).eq("id", selectedOrder.id);
 
