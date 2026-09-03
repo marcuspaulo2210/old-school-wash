@@ -450,7 +450,18 @@ const ClienteDashboard = () => {
     }
     if (!isDraft && !pesoKg) { setPesoError("Informe o peso das roupas."); return; }
     setPesoError("");
+    if (editingDraftId) {
+      await updateDraft(isDraft, {
+        tipo_cobranca: "peso",
+        obs_cliente: notes || null,
+        quem_contou: "cliente",
+        peso_kg: pesoKg ? parseFloat(pesoKg) : null,
+        peso_informado_cliente: pesoKg ? parseFloat(pesoKg) : null,
+      });
+      return;
+    }
     setSaving(true);
+
 
     const { data: order, error } = await supabase
       .from("pedidos")
