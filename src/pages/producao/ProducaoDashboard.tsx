@@ -147,8 +147,8 @@ const ProducaoDashboard = () => {
   const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
     setProductionNotes("");
-    setPesoRecebido(order.peso_recebido_producao ? String(order.peso_recebido_producao) : "");
-    setProdTab(order.tipo_cobranca === "peso" ? "peso" : "pecas");
+    setPesoRecebido("");
+    setProdTab("pecas");
     setNewProdItems([]);
 
     const { data } = await supabase.from("itens_pedido")
