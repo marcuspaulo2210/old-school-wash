@@ -92,6 +92,8 @@ const ClienteDashboard = () => {
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingDraft, setDeletingDraft] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
 
 
