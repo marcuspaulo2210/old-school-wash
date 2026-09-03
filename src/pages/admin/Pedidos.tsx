@@ -40,6 +40,8 @@ interface Order {
   obs_motorista: string | null;
   obs_producao: string | null;
   peso_kg: number | null;
+  peso_motorista_kg: number | null;
+  itens_pedido?: { quantidade_original: number }[] | null;
   valor_total: number | null;
   motorista_id: string | null;
   cliente_id: string;
@@ -48,6 +50,16 @@ interface Order {
 }
 
 interface Motorista { id: string; nome: string; }
+
+const formatPeso = (order: Order) => {
+  const pm = order.peso_motorista_kg != null ? Number(order.peso_motorista_kg) : null;
+  if (pm != null && pm > 0) return `${pm} kg`;
+  const pk = order.peso_kg != null ? Number(order.peso_kg) : null;
+  if (pk != null && pk > 0) return `${pk} kg`;
+  const pecas = (order.itens_pedido || []).reduce((s, i) => s + (Number(i.quantidade_original) || 0), 0);
+  if (pecas > 0) return `${pecas} pç`;
+  return "—";
+};
 
 const AdminPedidos = () => {
   const { user } = useAuth();
@@ -92,7 +104,7 @@ const AdminPedidos = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo), usuarios!pedidos_motorista_id_fkey(nome)")
+      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, peso_motorista_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo), usuarios!pedidos_motorista_id_fkey(nome), itens_pedido(quantidade_original)")
       .order("criado_em", { ascending: false })
       .limit(200);
     setOrders((data as unknown as Order[]) || []);
@@ -241,7 +253,7 @@ const AdminPedidos = () => {
                     )}
                   </td>
                   <td className="text-muted-foreground capitalize">{order.quem_contou}</td>
-                  <td className="text-right font-mono">{order.peso_kg ? `${order.peso_kg} kg` : "—"}</td>
+                  <td className="text-right font-mono">{formatPeso(order)}</td>
                   <td className="text-right font-mono" onClick={(e) => { e.stopPropagation(); if (editingValorId !== order.id) startEditValor(order); }}>
                     {editingValorId === order.id ? (
                       <input
@@ -257,7 +269,7 @@ const AdminPedidos = () => {
                         }}
                         onClick={(e) => e.stopPropagation()}
                       />
-                    ) : order.valor_total != null ? (
+                    ) : order.valor_total != null && Number(order.valor_total) > 0 ? (
                       <span className="font-bold cursor-pointer" style={{ color: "#2dbfa0" }}>
                         R$ {Number(order.valor_total).toFixed(2).replace(".", ",")}
                       </span>
