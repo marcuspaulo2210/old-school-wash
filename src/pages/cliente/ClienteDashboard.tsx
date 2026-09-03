@@ -91,6 +91,9 @@ const ClienteDashboard = () => {
   const [motoristaFallbackId, setMotoristaFallbackId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(false);
+
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"peca" | "peso">("peca");
