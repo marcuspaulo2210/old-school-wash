@@ -20,6 +20,13 @@ interface ItemPedido {
   tipos_roupa: { nome: string } | null;
 }
 
+interface SaidaItem {
+  tipo_roupa_id: string | null;
+  nome: string;
+  quantidade: number;
+  custom?: boolean;
+}
+
 interface Pedido {
   id: string;
   numero_pedido: string;
@@ -76,6 +83,8 @@ const ProducaoDashboard = () => {
   // Finalize modal
   const [finalizingOrder, setFinalizingOrder] = useState<Pedido | null>(null);
   const [askUseOriginal, setAskUseOriginal] = useState(false);
+  const [saidaItems, setSaidaItems] = useState<SaidaItem[]>([]);
+  const [loadingSaida, setLoadingSaida] = useState(false);
   const [tiposRoupa, setTiposRoupa] = useState<TipoRoupa[]>([]);
 
   // Selected client group
@@ -105,7 +114,7 @@ const ProducaoDashboard = () => {
   useEffect(() => { fetchOrders(); }, []);
 
   useEffect(() => {
-    supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).then(({ data }) => {
+    supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome").then(({ data }) => {
       setTiposRoupa((data as any) || []);
     });
   }, []);
@@ -249,6 +258,54 @@ const ProducaoDashboard = () => {
     fetchOrders();
   };
 
+  const openFinalize = async (order: Pedido) => {
+    setFinalizingOrder(order);
+    setAskUseOriginal(false);
+    setLoadingSaida(true);
+    setSaidaItems([]);
+
+    const [{ data: tipos }, { data: itensPedido }] = await Promise.all([
+      supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome"),
+      supabase.from("itens_pedido")
+        .select("tipo_roupa_id, descricao_livre, quantidade_original, quantidade_conferida, tipos_roupa(nome)")
+        .eq("pedido_id", order.id),
+    ]);
+
+    // Sugestões: quantidades conferidas (ou originais) do pedido
+    const sugeridas = new Map<string, number>();
+    for (const it of ((itensPedido as any[]) || [])) {
+      const nome = (it.tipos_roupa?.nome || it.descricao_livre || "").trim().toLowerCase();
+      if (!nome) continue;
+      const qtd = it.quantidade_conferida ?? it.quantidade_original ?? 0;
+      sugeridas.set(nome, (sugeridas.get(nome) || 0) + Number(qtd || 0));
+    }
+
+    const lista: SaidaItem[] = ((tipos as any[]) || []).map(t => ({
+      tipo_roupa_id: t.id,
+      nome: t.nome,
+      quantidade: sugeridas.get(String(t.nome).trim().toLowerCase()) || 0,
+    }));
+
+    // Itens do pedido que não constam na tabela de tipos do admin
+    const nomesTipos = new Set(lista.map(l => l.nome.trim().toLowerCase()));
+    for (const [nome, qtd] of sugeridas.entries()) {
+      if (!nomesTipos.has(nome)) {
+        const original = ((itensPedido as any[]) || []).find(it => (it.tipos_roupa?.nome || it.descricao_livre || "").trim().toLowerCase() === nome);
+        lista.push({ tipo_roupa_id: null, nome: (original?.tipos_roupa?.nome || original?.descricao_livre || nome), quantidade: qtd, custom: true });
+      }
+    }
+
+    setSaidaItems(lista);
+    setLoadingSaida(false);
+  };
+
+  const updateSaidaQtd = (idx: number, value: number) =>
+    setSaidaItems(prev => prev.map((s, i) => i === idx ? { ...s, quantidade: value } : s));
+  const updateSaidaNome = (idx: number, value: string) =>
+    setSaidaItems(prev => prev.map((s, i) => i === idx ? { ...s, nome: value } : s));
+  const addSaidaItem = () => setSaidaItems(prev => [...prev, { tipo_roupa_id: null, nome: "", quantidade: 0, custom: true }]);
+  const removeSaidaItem = (idx: number) => setSaidaItems(prev => prev.filter((_, i) => i !== idx));
+
   const handleRequestFinalize = async () => {
     if (!finalizingOrder) return;
     const { data: conferidos } = await supabase
@@ -259,6 +316,8 @@ const ProducaoDashboard = () => {
 
     const temConferencia = (conferidos || []).some((it: any) => (it.quantidade_conferida ?? 0) > 0);
     const temManual = newProdItems.some(pi => pi.descricao.trim() && pi.quantidade > 0);
+    const temSaida = saidaItems.some(si => si.nome.trim() && si.quantidade > 0);
+    if (temSaida) { handleFinalize(); return; }
 
     if (!temConferencia && !temManual) {
       setAskUseOriginal(true);
@@ -286,8 +345,19 @@ const ProducaoDashboard = () => {
 
       let payload: any[] = [];
 
+      // Prioridade 0: lista de peças de saída preenchida pela produção
+      payload = saidaItems
+        .filter(si => si.nome.trim() && si.quantidade > 0)
+        .map(si => ({
+          pedido_id: finalizingOrder.id,
+          tipo_roupa_id: si.tipo_roupa_id,
+          descricao_livre: si.tipo_roupa_id ? null : si.nome.trim(),
+          quantidade: si.quantidade,
+          criado_por: user.id,
+        }));
+
       // Prioridade 1: conferência real
-      payload = (conferidos || [])
+      if (payload.length === 0) payload = (conferidos || [])
         .filter((it: any) => (it.quantidade_conferida ?? 0) > 0)
         .map((it: any) => ({
           pedido_id: finalizingOrder.id,
@@ -461,7 +531,7 @@ const ProducaoDashboard = () => {
                     <button
                       className="px-3 py-1.5 text-xs font-bold rounded-lg text-white flex items-center gap-1"
                       style={{ background: "#34c97a" }}
-                      onClick={(e) => { e.stopPropagation(); setFinalizingOrder(order); }}
+                      onClick={(e) => { e.stopPropagation(); openFinalize(order); }}
                     >
                       <Truck className="w-3.5 h-3.5" /> Liberar
                     </button>
@@ -751,7 +821,7 @@ const ProducaoDashboard = () => {
 
       {/* Finalize confirmation modal */}
       {finalizingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => { if (!saving) { setFinalizingOrder(null); setAskUseOriginal(false); } }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => { if (!saving) { setFinalizingOrder(null); setAskUseOriginal(false); setSaidaItems([]); } }}>
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div>
               <h3 className="text-sm font-bold text-foreground">Finalizar e liberar para entrega</h3>
@@ -781,9 +851,46 @@ const ProducaoDashboard = () => {
               </>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground">
-                  As peças já foram registradas na etapa anterior. Confirmar liberação para entrega?
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Peças de saída (devolvidas)</p>
+                  {loadingSaida ? (
+                    <p className="text-xs text-muted-foreground">Carregando tipos de roupa...</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[45vh] overflow-y-auto pr-1">
+                      {saidaItems.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nenhum tipo de roupa cadastrado. Use "+ Adicionar tipo".</p>
+                      )}
+                      {saidaItems.map((si, idx) => (
+                        <div key={`${si.tipo_roupa_id || "custom"}-${idx}`} className="flex items-center gap-2">
+                          {si.tipo_roupa_id ? (
+                            <span className="flex-1 text-sm text-foreground truncate">{si.nome}</span>
+                          ) : (
+                            <input
+                              className="field-input flex-1 text-xs py-2"
+                              value={si.nome}
+                              placeholder="Tipo não cadastrado"
+                              onChange={(e) => updateSaidaNome(idx, e.target.value)}
+                            />
+                          )}
+                          <input
+                            type="number"
+                            min={0}
+                            className="field-input w-20 text-center font-mono text-xs py-2"
+                            value={si.quantidade}
+                            onChange={(e) => updateSaidaQtd(idx, parseInt(e.target.value) || 0)}
+                          />
+                          {!si.tipo_roupa_id && (
+                            <button onClick={() => removeSaidaItem(idx)} className="p-1.5 rounded-lg" style={{ color: "#e05050" }}><X className="w-4 h-4" /></button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button className="btn-ghost text-xs w-full" onClick={addSaidaItem}>
+                    <Plus className="w-3.5 h-3.5" /> Adicionar tipo
+                  </button>
+                  <p className="text-[11px] text-muted-foreground">Tipos com quantidade 0 não são registrados.</p>
+                </div>
                 <div className="flex gap-2">
                   <button className="btn-ghost flex-1" onClick={() => setFinalizingOrder(null)} disabled={saving}>Cancelar</button>
                   <button
