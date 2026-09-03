@@ -31,6 +31,7 @@ interface Pedido {
   quem_contou: string;
   peso_kg: number | null;
   peso_informado_cliente: number | null;
+  peso_motorista_kg: number | null;
   peso_recebido_producao: number | null;
   tipo_registro_producao: string | null;
   status_entrada: string;
