@@ -41,7 +41,8 @@ interface Order {
   obs_producao: string | null;
   peso_kg: number | null;
   peso_motorista_kg: number | null;
-  itens_pedido?: { quantidade_original: number }[] | null;
+  itens_pedido?: { quantidade_original: number; tipo_roupa_id: string | null; descricao_livre: string | null }[] | null;
+  valor_calculado?: number | null;
   valor_total: number | null;
   motorista_id: string | null;
   cliente_id: string;
