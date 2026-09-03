@@ -1074,6 +1074,34 @@ const ClienteDashboard = () => {
           )}
         </ConfirmationModal>
       )}
+
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-6 w-full max-w-sm space-y-4">
+            <p className="text-sm font-bold text-foreground">Excluir rascunho</p>
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir este rascunho? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg border border-border text-foreground"
+                onClick={() => setConfirmDeleteId(null)}
+                disabled={deletingDraft}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white"
+                style={{ background: "#e05050" }}
+                onClick={() => handleDeleteDraft(confirmDeleteId)}
+                disabled={deletingDraft}
+              >
+                {deletingDraft ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 };
