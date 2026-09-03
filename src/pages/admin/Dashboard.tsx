@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge, { getStatusConfig } from "@/components/StatusBadge";
-import { ClipboardList, TruckIcon, Package, AlertTriangle, MessageSquare, KeyRound } from "lucide-react";
+import { ClipboardList, TruckIcon, Package, AlertTriangle, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 
 interface Order {
@@ -87,7 +87,7 @@ const AdminDashboard = () => {
     { label: "Divergências", value: stats.divergencias, color: "#e05050", bg: "rgba(224,80,80,0.12)", icon: AlertTriangle },
   ];
 
-  const hasObs = (o: Order) => !!(o.obs_cliente || o.obs_motorista || o.obs_producao);
+  
 
   const statusTabs = [
     { key: "todos", label: "Todos" },
@@ -194,30 +194,28 @@ const AdminDashboard = () => {
                 <th>Nº Pedido</th>
                 <th>Cliente</th>
                 <th>Quem contou</th>
-                <th className="text-right">Qtd/Peso</th>
-                <th className="text-right">Valor</th>
                 <th>Status</th>
-                <th className="text-center">Obs</th>
+                <th className="text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="text-center text-muted-foreground py-8">Nenhum pedido encontrado</td></tr>
+                <tr><td colSpan={5} className="text-center text-muted-foreground py-8">Nenhum pedido encontrado</td></tr>
               )}
               {filtered.map((o) => (
                 <tr key={o.id} className="cursor-pointer" onClick={() => window.location.href = `/admin/pedidos?id=${o.id}`}>
                   <td className="font-mono font-bold" style={{ color: "#5b8df6" }}>{o.numero_pedido}</td>
                   <td className="text-foreground font-medium">{o.clientes?.nome || "—"}</td>
                   <td className="text-muted-foreground capitalize">{o.quem_contou}</td>
-                  <td className="text-right font-mono text-foreground">
-                    {o.tipo_cobranca === "peso" ? `${o.peso_kg || 0} kg` : "—"}
-                  </td>
-                  <td className="text-right font-mono text-foreground">
-                    {o.valor_total ? `R$ ${Number(o.valor_total).toFixed(2)}` : "—"}
-                  </td>
                   <td><StatusBadge status={o.status} /></td>
                   <td className="text-center">
-                    {hasObs(o) && <MessageSquare className="w-3.5 h-3.5 inline" style={{ color: "#f0a020" }} />}
+                    <a
+                      href={`/admin/pedidos?id=${o.id}`}
+                      className="inline-flex items-center justify-center px-3 py-1 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Ver
+                    </a>
                   </td>
                 </tr>
               ))}
