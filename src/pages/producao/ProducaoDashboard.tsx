@@ -31,6 +31,7 @@ interface Pedido {
   quem_contou: string;
   peso_kg: number | null;
   peso_informado_cliente: number | null;
+  peso_motorista_kg: number | null;
   peso_recebido_producao: number | null;
   tipo_registro_producao: string | null;
   status_entrada: string;
@@ -66,10 +67,8 @@ const ProducaoDashboard = () => {
   const [searchText, setSearchText] = useState("");
 
   // Production registration tabs
-  const [prodTab, setProdTab] = useState<"pecas" | "peso">("pecas");
 
   // Production weight
-  const [pesoRecebido, setPesoRecebido] = useState("");
 
   // Production items (new items added by production)
   const [newProdItems, setNewProdItems] = useState<NewProdItem[]>([]);
@@ -85,7 +84,7 @@ const ProducaoDashboard = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, obs_producao, quem_contou, peso_kg, peso_informado_cliente, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
+      .select("id, numero_pedido, status, tipo_cobranca, obs_cliente, obs_motorista, obs_producao, quem_contou, peso_kg, peso_informado_cliente, peso_motorista_kg, peso_recebido_producao, tipo_registro_producao, status_entrada, cliente_id, clientes(nome, tipo)")
       .in("status", ["coletado", "em_producao", "embalado", "divergencia"])
       .order("criado_em", { ascending: true });
     const pedidos = ((data as unknown as Pedido[]) || []).filter(p => !["pronto_para_entrega", "saiu_para_entrega", "entregue"].includes(p.status));
@@ -146,8 +145,6 @@ const ProducaoDashboard = () => {
   const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
     setProductionNotes("");
-    setPesoRecebido(order.peso_recebido_producao ? String(order.peso_recebido_producao) : "");
-    setProdTab(order.tipo_cobranca === "peso" ? "peso" : "pecas");
     setNewProdItems([]);
 
     const { data } = await supabase.from("itens_pedido")
@@ -170,8 +167,11 @@ const ProducaoDashboard = () => {
   const addProdItem = () => setNewProdItems([...newProdItems, { descricao: "", quantidade: 1, observacao: "" }]);
   const removeProdItem = (idx: number) => setNewProdItems(newProdItems.filter((_, i) => i !== idx));
 
-  const weightDiff = selectedOrder?.peso_informado_cliente && pesoRecebido
-    ? parseFloat(pesoRecebido) - selectedOrder.peso_informado_cliente
+  // A produção não lança peso — apenas visualiza o registrado pelo motorista
+  const weightDiff: number | null = null;
+  const isPesoOrder = selectedOrder?.tipo_cobranca === "peso";
+  const pesoColetadoMotorista = selectedOrder
+    ? (selectedOrder.peso_motorista_kg ?? selectedOrder.peso_informado_cliente ?? selectedOrder.peso_kg ?? null)
     : null;
 
   const handleSaveEntry = async () => {
@@ -196,8 +196,7 @@ const ProducaoDashboard = () => {
 
     await supabase.from("pedidos").update({
       obs_producao: productionNotes || null,
-      peso_recebido_producao: pesoRecebido ? parseFloat(pesoRecebido) : null,
-      tipo_registro_producao: prodTab,
+      tipo_registro_producao: selectedOrder.tipo_cobranca === "peso" ? "peso" : "pecas",
       status_entrada: "salvo",
     } as any).eq("id", selectedOrder.id);
 
@@ -237,8 +236,7 @@ const ProducaoDashboard = () => {
       status: newStatus as any,
       obs_producao: productionNotes || null,
       embalado_em: registerDivergence ? null : new Date().toISOString(),
-      peso_recebido_producao: pesoRecebido ? parseFloat(pesoRecebido) : null,
-      tipo_registro_producao: prodTab,
+      tipo_registro_producao: selectedOrder.tipo_cobranca === "peso" ? "peso" : "pecas",
       status_entrada: "confirmado",
     } as any).eq("id", selectedOrder.id);
 
@@ -632,8 +630,19 @@ const ProducaoDashboard = () => {
               </div>
             )}
 
-            {/* Show client-reported weight for peso orders */}
-            {selectedOrder.peso_informado_cliente && (
+            {/* Peso coletado pelo motorista — somente leitura */}
+            {isPesoOrder && (
+              <div className="rounded-lg px-4 py-3" style={{ background: "rgba(240,160,32,0.08)" }}>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Somente leitura</p>
+                <p className="font-mono text-lg font-bold flex items-center gap-2" style={{ color: "#f0a020" }}>
+                  <Scale className="w-4 h-4" />
+                  Peso coletado pelo motorista: {pesoColetadoMotorista != null ? Number(pesoColetadoMotorista).toFixed(3) : "—"} kg
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">A produção apenas confirma o recebimento.</p>
+              </div>
+            )}
+
+            {!isPesoOrder && selectedOrder.peso_informado_cliente && (
               <div className="rounded-lg px-4 py-3" style={{ background: "rgba(240,160,32,0.08)" }}>
                 <p className="text-xs text-muted-foreground mb-1">(informado pelo cliente)</p>
                 <p className="font-mono text-lg font-bold" style={{ color: "#f0a020" }}>
@@ -642,34 +651,8 @@ const ProducaoDashboard = () => {
               </div>
             )}
 
-            {/* Production registration tabs */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setProdTab("pecas")}
-                className="flex-1 py-2 text-sm font-semibold rounded-[9px] transition-all"
-                style={{
-                  background: prodTab === "pecas" ? "#5b8df6" : "transparent",
-                  color: prodTab === "pecas" ? "#fff" : "#6b7190",
-                  border: prodTab === "pecas" ? "none" : "1px solid rgba(255,255,255,0.13)",
-                }}
-              >
-                Registrar por Peças
-              </button>
-              <button
-                onClick={() => setProdTab("peso")}
-                className="flex-1 py-2 text-sm font-semibold rounded-[9px] transition-all"
-                style={{
-                  background: prodTab === "peso" ? "#5b8df6" : "transparent",
-                  color: prodTab === "peso" ? "#fff" : "#6b7190",
-                  border: prodTab === "peso" ? "none" : "1px solid rgba(255,255,255,0.13)",
-                }}
-              >
-                Registrar por Peso
-              </button>
-            </div>
-
-            {/* Tab: Registrar por Peças */}
-            {prodTab === "pecas" && (
+            {/* Conferência por peças (clínica) */}
+            {!isPesoOrder && (
               <>
                 {items.length === 0 && newProdItems.length === 0 ? (
                   <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
@@ -725,38 +708,8 @@ const ProducaoDashboard = () => {
               </>
             )}
 
-            {/* Tab: Registrar por Peso */}
-            {prodTab === "peso" && (
-              <>
-                <div>
-                  <label className="field-label flex items-center gap-2">
-                    <Scale className="w-4 h-4" /> Peso recebido (kg)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    className="field-input font-mono"
-                    value={pesoRecebido}
-                    onChange={(e) => setPesoRecebido(e.target.value)}
-                    placeholder="Peso conferido na balança"
-                  />
-                </div>
 
-                {weightDiff !== null && pesoRecebido && (
-                  <div className="rounded-lg px-4 py-3" style={{ background: weightDiff === 0 ? "rgba(52,201,122,0.08)" : "rgba(224,80,80,0.08)" }}>
-                    {weightDiff === 0 ? (
-                      <p className="flex items-center gap-2 text-sm font-bold" style={{ color: "#34c97a" }}>
-                        <CheckCircle className="w-4 h-4" /> Peso conferido ✓
-                      </p>
-                    ) : (
-                      <p className="text-sm font-bold font-mono" style={{ color: "#e05050" }}>
-                        Diferença: {weightDiff > 0 ? "+" : ""}{weightDiff.toFixed(3)} kg
-                      </p>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+
 
             <div>
               <label className="field-label">Observações da produção</label>
