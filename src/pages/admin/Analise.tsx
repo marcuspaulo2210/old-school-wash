@@ -166,13 +166,12 @@ const Analise = () => {
                 <th className="text-center">Tipo</th>
                 <th className="text-center">Tarifação</th>
                 <th className="text-center">Pedidos</th>
-                <th className="text-right">Peso motorista</th>
-                <th className="text-right">Peso produção</th>
+                <th className="text-right">Peso coletado</th>
               </tr>
             </thead>
             <tbody>
               {perClient.length === 0 && (
-                <tr><td colSpan={6} className="text-center text-muted-foreground py-6">Nenhum dado neste mês</td></tr>
+                <tr><td colSpan={5} className="text-center text-muted-foreground py-6">Nenhum dado neste mês</td></tr>
               )}
               {perClient.map(r => (
                 <tr key={r.id}>
@@ -191,7 +190,6 @@ const Analise = () => {
                   </td>
                   <td className="text-center font-mono">{r.pedidos}</td>
                   <td className="text-right font-mono">{r.pesoMot.toFixed(2)} kg</td>
-                  <td className="text-right font-mono">{r.pesoProd.toFixed(2)} kg</td>
                 </tr>
               ))}
             </tbody>
