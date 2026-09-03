@@ -11,6 +11,7 @@ import ClienteSaldoRoupas from "@/components/ClienteSaldoRoupas";
 import NotificationBell from "@/components/NotificationBell";
 import { Plus, X, Scale, ChevronDown, ChevronUp, Calendar, Trash2, Pencil } from "lucide-react";
 import { calcDataColeta, formatDataColeta, toIsoDate, RotaLite } from "@/lib/coletaDate";
+import { toast } from "@/hooks/use-toast";
 
 interface TipoRoupa { id: string; nome: string; }
 interface ItemPedido { tipo_roupa_id: string; descricao_livre: string; quantidade_original: number; }
@@ -92,6 +93,8 @@ const ClienteDashboard = () => {
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingDraft, setDeletingDraft] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
 
 
@@ -325,15 +328,41 @@ const ClienteDashboard = () => {
   };
 
   const handleDeleteDraft = async (pedidoId: string) => {
-    if (!window.confirm("Deseja excluir este rascunho? Esta ação não pode ser desfeita.")) return;
-    setLoadingDraft(true);
-    const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId).eq("rascunho", true);
-    setLoadingDraft(false);
+    setDeletingDraft(true);
+    setSubmitError(null);
+
+    const { error: itensError } = await supabase.from("itens_pedido").delete().eq("pedido_id", pedidoId);
+    if (itensError) {
+      setDeletingDraft(false);
+      setSubmitError("Falha ao excluir itens do rascunho: " + itensError.message);
+      return;
+    }
+
+    const { data: deleted, error } = await supabase
+      .from("pedidos")
+      .delete()
+      .eq("id", pedidoId)
+      .eq("rascunho", true)
+      .select("id");
+
+    setDeletingDraft(false);
+
     if (error) {
       setSubmitError("Falha ao excluir rascunho: " + error.message);
       return;
     }
-    await refreshOrders();
+    if (!deleted || deleted.length === 0) {
+      setSubmitError("Não foi possível excluir o rascunho (permissão negada).");
+      return;
+    }
+
+    setOrders((prev) => prev.filter((p) => p.id !== pedidoId));
+    setConfirmDeleteId(null);
+    if (editingDraftId === pedidoId) {
+      setEditingDraftId(null);
+      setShowForm(false);
+    }
+    toast({ title: "Rascunho excluído" });
   };
 
 
@@ -869,7 +898,7 @@ const ClienteDashboard = () => {
                       <button
                         className="w-full py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5"
                         style={{ background: "rgba(224,80,80,0.12)", color: "#e05050", border: "1px solid rgba(224,80,80,0.3)" }}
-                        onClick={() => handleDeleteDraft(order.id)}
+                        onClick={() => setConfirmDeleteId(order.id)}
                         disabled={loadingDraft}
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Excluir rascunho
@@ -1044,6 +1073,34 @@ const ClienteDashboard = () => {
             </div>
           )}
         </ConfirmationModal>
+      )}
+
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-[rgba(255,255,255,0.07)] rounded-xl p-6 w-full max-w-sm space-y-4">
+            <p className="text-sm font-bold text-foreground">Excluir rascunho</p>
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir este rascunho? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg border border-border text-foreground"
+                onClick={() => setConfirmDeleteId(null)}
+                disabled={deletingDraft}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 py-2.5 text-sm font-bold rounded-lg text-white"
+                style={{ background: "#e05050" }}
+                onClick={() => handleDeleteDraft(confirmDeleteId)}
+                disabled={deletingDraft}
+              >
+                {deletingDraft ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AppLayout>
   );
