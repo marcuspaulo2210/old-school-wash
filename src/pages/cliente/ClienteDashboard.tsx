@@ -856,14 +856,23 @@ const ClienteDashboard = () => {
                   </button>
 
                   {order.rascunho && (
-                    <div className="px-4 pb-4 -mt-1">
+                    <div className="px-4 pb-4 space-y-2">
                       <button
-                        className="w-full py-2.5 text-sm font-bold rounded-lg transition-all text-white"
+                        className="w-full py-2.5 text-sm font-bold rounded-lg transition-all text-white flex items-center justify-center gap-2"
                         style={{ background: "#5b8df6" }}
                         onClick={() => handleEditDraft(order.id)}
                         disabled={loadingDraft}
                       >
+                        <Pencil className="w-4 h-4" />
                         {loadingDraft ? "Carregando..." : "Editar rascunho"}
+                      </button>
+                      <button
+                        className="w-full py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                        style={{ background: "rgba(224,80,80,0.12)", color: "#e05050", border: "1px solid rgba(224,80,80,0.3)" }}
+                        onClick={() => handleDeleteDraft(order.id)}
+                        disabled={loadingDraft}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Excluir rascunho
                       </button>
                     </div>
                   )}
