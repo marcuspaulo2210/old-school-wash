@@ -91,6 +91,9 @@ const ClienteDashboard = () => {
   const [motoristaFallbackId, setMotoristaFallbackId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>({ permite_cobranca_peca: true, permite_cobranca_peso: true });
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(false);
+
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"peca" | "peso">("peca");
@@ -235,6 +238,123 @@ const ClienteDashboard = () => {
     }
   };
 
+  const resetForm = () => {
+    setItems([]);
+    setNotes("");
+    setPesoKg("");
+    setPesoEstimado("");
+    setHospitalQtys((prev) => prev.map((h) => ({ ...h, quantidade: 0 })));
+    setWeightItems((prev) => prev.map((w) => ({ ...w, quantidade: 0 })));
+    setEditingDraftId(null);
+    setSubmitError(null);
+    setPesoError("");
+  };
+
+  const buildItemRows = (pedidoId: string) => {
+    if (activeTab === "peso") {
+      if (!isHospital) return [];
+      return weightItems
+        .filter((wi) => wi.quantidade > 0)
+        .map((wi) => ({ pedido_id: pedidoId, tipo_roupa_id: wi.tipo_roupa_id, quantidade_original: wi.quantidade, origem: "cliente" }));
+    }
+    if (isHospital) {
+      return hospitalQtys
+        .filter((h) => h.quantidade > 0)
+        .map((h) => ({ pedido_id: pedidoId, tipo_roupa_id: h.tipo_roupa_id, quantidade_original: h.quantidade, origem: "cliente" }));
+    }
+    return items.map((i) => ({
+      pedido_id: pedidoId,
+      tipo_roupa_id: i.tipo_roupa_id || null,
+      descricao_livre: i.descricao_livre || null,
+      quantidade_original: i.quantidade_original,
+      origem: "cliente",
+    }));
+  };
+
+  const handleEditDraft = async (pedidoId: string) => {
+    setLoadingDraft(true);
+    setSubmitError(null);
+    const { data, error } = await supabase
+      .from("pedidos")
+      .select("id, tipo_cobranca, peso_kg, peso_informado_cliente, obs_cliente, itens_pedido(tipo_roupa_id, descricao_livre, quantidade_original)")
+      .eq("id", pedidoId)
+      .single();
+    setLoadingDraft(false);
+    if (error || !data) {
+      setSubmitError("Não foi possível carregar o rascunho.");
+      return;
+    }
+    const p = data as any;
+    const itensDraft = (p.itens_pedido || []) as { tipo_roupa_id: string | null; descricao_livre: string | null; quantidade_original: number }[];
+    const tipo = p.tipo_cobranca === "peso" ? "peso" : "peca";
+    setActiveTab(tipo);
+    setNotes(p.obs_cliente || "");
+    setPesoKg(p.peso_kg != null ? String(p.peso_kg) : "");
+    setPesoEstimado(tipo === "peca" && p.peso_informado_cliente != null ? String(p.peso_informado_cliente) : "");
+    if (tipo === "peso") {
+      setWeightItems((prev) => {
+        const base = prev.length > 0 ? prev : tiposRoupa.map((tr) => ({ tipo_roupa_id: tr.id, quantidade: 0 }));
+        return base.map((w) => ({
+          ...w,
+          quantidade: itensDraft.find((it) => it.tipo_roupa_id === w.tipo_roupa_id)?.quantidade_original || 0,
+        }));
+      });
+      setItems([]);
+    } else if (isHospital) {
+      setHospitalQtys((prev) => {
+        const base = prev.length > 0 ? prev : tiposRoupa.map((tr) => ({ tipo_roupa_id: tr.id, quantidade: 0 }));
+        return base.map((h) => ({
+          ...h,
+          quantidade: itensDraft.find((it) => it.tipo_roupa_id === h.tipo_roupa_id)?.quantidade_original || 0,
+        }));
+      });
+      setItems([]);
+    } else {
+      setItems(
+        itensDraft.map((it) => ({
+          tipo_roupa_id: it.tipo_roupa_id || "",
+          descricao_livre: it.descricao_livre || tiposRoupa.find((tr) => tr.id === it.tipo_roupa_id)?.nome || "",
+          quantidade_original: it.quantidade_original,
+        }))
+      );
+    }
+    setEditingDraftId(pedidoId);
+    setShowForm(true);
+    setExpandedOrder(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateDraft = async (isDraft: boolean, payload: Record<string, unknown>) => {
+    if (!user || !editingDraftId) return false;
+    setSaving(true);
+    const { data, error } = await supabase
+      .from("pedidos")
+      .update({ ...payload, rascunho: isDraft, status: "aguardando_coleta" } as any)
+      .eq("id", editingDraftId)
+      .select("id, numero_pedido")
+      .single();
+    if (error || !data) {
+      console.error("[Rascunho] update erro:", error);
+      setSubmitError(`Falha ao salvar rascunho: ${error?.message || "erro desconhecido"}`);
+      setSaving(false);
+      return false;
+    }
+    const o = data as any;
+    await supabase.from("itens_pedido").delete().eq("pedido_id", o.id);
+    const rows = buildItemRows(o.id);
+    if (rows.length > 0) await supabase.from("itens_pedido").insert(rows as any);
+    if (!isDraft) {
+      await registrarMudancaStatus(o.id, null, "aguardando_coleta", user.id, "Rascunho enviado pelo cliente");
+    }
+    resetForm();
+    setShowForm(false);
+    if (!isDraft) setConfirmation({ pedido: o.numero_pedido });
+    await refreshOrders();
+    setSaving(false);
+    return true;
+  };
+
+
   const handleSubmitPecas = async (isDraft: boolean) => {
     console.log("[NovoPedido] handleSubmitPecas called", { isDraft, profile, items, isHospital });
     setSubmitError(null);
@@ -243,8 +363,19 @@ const ClienteDashboard = () => {
       return;
     }
     if (!isHospital && items.length === 0) return;
-    setSaving(true);
     const quemContou = isHospital ? "lavanderia" : "cliente";
+    if (editingDraftId) {
+      await updateDraft(isDraft, {
+        tipo_cobranca: "peca",
+        obs_cliente: notes || null,
+        quem_contou: quemContou,
+        peso_kg: null,
+        peso_informado_cliente: isHospital && pesoEstimado ? parseFloat(pesoEstimado) : null,
+      });
+      return;
+    }
+    setSaving(true);
+
     const { data: order, error } = await supabase
       .from("pedidos")
       .insert({
@@ -319,7 +450,18 @@ const ClienteDashboard = () => {
     }
     if (!isDraft && !pesoKg) { setPesoError("Informe o peso das roupas."); return; }
     setPesoError("");
+    if (editingDraftId) {
+      await updateDraft(isDraft, {
+        tipo_cobranca: "peso",
+        obs_cliente: notes || null,
+        quem_contou: "cliente",
+        peso_kg: pesoKg ? parseFloat(pesoKg) : null,
+        peso_informado_cliente: pesoKg ? parseFloat(pesoKg) : null,
+      });
+      return;
+    }
     setSaving(true);
+
 
     const { data: order, error } = await supabase
       .from("pedidos")
@@ -408,12 +550,12 @@ const ClienteDashboard = () => {
       {profile?.cliente_id && <ClienteSaldoRoupas clienteId={profile.cliente_id} />}
 
       {!showForm ? (
-        <button className="btn-primary w-full btn-lg mb-5" onClick={() => setShowForm(true)}>
+        <button className="btn-primary w-full btn-lg mb-5" onClick={() => { resetForm(); setShowForm(true); }}>
           <Plus className="w-5 h-5" /> Novo Pedido
         </button>
       ) : (
         <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-card p-5 mb-5 space-y-4">
-          <h3 className="text-sm font-bold text-foreground">Novo Pedido</h3>
+          <h3 className="text-sm font-bold text-foreground">{editingDraftId ? "Editar rascunho" : "Novo Pedido"}</h3>
 
           <div>
             <label className="field-label">Clínica / Hospital</label>
@@ -663,7 +805,8 @@ const ClienteDashboard = () => {
             </div>
           )}
 
-          <button className="btn-ghost w-full" onClick={() => { setShowForm(false); setItems([]); setPesoKg(""); setPesoEstimado(""); }}>Cancelar</button>
+          <button className="btn-ghost w-full" onClick={() => { setShowForm(false); resetForm(); }}>Cancelar</button>
+
         </div>
       )}
 
@@ -697,6 +840,20 @@ const ClienteDashboard = () => {
                       {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                     </div>
                   </button>
+
+                  {order.rascunho && (
+                    <div className="px-4 pb-4 -mt-1">
+                      <button
+                        className="w-full py-2.5 text-sm font-bold rounded-lg transition-all text-white"
+                        style={{ background: "#5b8df6" }}
+                        onClick={() => handleEditDraft(order.id)}
+                        disabled={loadingDraft}
+                      >
+                        {loadingDraft ? "Carregando..." : "Editar rascunho"}
+                      </button>
+                    </div>
+                  )}
+
 
                   {isExpanded && !order.rascunho && (
                     <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
