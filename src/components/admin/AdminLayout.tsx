@@ -6,7 +6,6 @@ import {
   ClipboardList,
   AlertTriangle,
   Shirt,
-  ListChecks,
   Users,
   MapPin,
   LogOut,
@@ -38,7 +37,6 @@ const menuCategories = [
     items: [
       { label: "Acessos", path: "/admin/acessos", icon: Users },
       { label: "Tipos de Roupa", path: "/admin/roupas", icon: Shirt },
-      { label: "Serviços", path: "/admin/servicos", icon: ListChecks },
       { label: "Rotas", path: "/admin/rotas", icon: MapPin },
     ],
   },
