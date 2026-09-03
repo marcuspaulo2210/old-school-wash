@@ -40,6 +40,8 @@ interface Order {
   obs_motorista: string | null;
   obs_producao: string | null;
   peso_kg: number | null;
+  peso_motorista_kg: number | null;
+  itens_pedido?: { quantidade_original: number }[] | null;
   valor_total: number | null;
   motorista_id: string | null;
   cliente_id: string;
