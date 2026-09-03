@@ -325,15 +325,41 @@ const ClienteDashboard = () => {
   };
 
   const handleDeleteDraft = async (pedidoId: string) => {
-    if (!window.confirm("Deseja excluir este rascunho? Esta ação não pode ser desfeita.")) return;
-    setLoadingDraft(true);
-    const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId).eq("rascunho", true);
-    setLoadingDraft(false);
+    setDeletingDraft(true);
+    setSubmitError(null);
+
+    const { error: itensError } = await supabase.from("itens_pedido").delete().eq("pedido_id", pedidoId);
+    if (itensError) {
+      setDeletingDraft(false);
+      setSubmitError("Falha ao excluir itens do rascunho: " + itensError.message);
+      return;
+    }
+
+    const { data: deleted, error } = await supabase
+      .from("pedidos")
+      .delete()
+      .eq("id", pedidoId)
+      .eq("rascunho", true)
+      .select("id");
+
+    setDeletingDraft(false);
+
     if (error) {
       setSubmitError("Falha ao excluir rascunho: " + error.message);
       return;
     }
-    await refreshOrders();
+    if (!deleted || deleted.length === 0) {
+      setSubmitError("Não foi possível excluir o rascunho (permissão negada).");
+      return;
+    }
+
+    setOrders((prev) => prev.filter((p) => p.id !== pedidoId));
+    setConfirmDeleteId(null);
+    if (editingDraftId === pedidoId) {
+      setEditingDraftId(null);
+      setShowForm(false);
+    }
+    toast({ title: "Rascunho excluído" });
   };
 
 
