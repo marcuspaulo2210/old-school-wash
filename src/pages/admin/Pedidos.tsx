@@ -105,10 +105,53 @@ const AdminPedidos = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from("pedidos")
-      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, peso_motorista_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo), usuarios!pedidos_motorista_id_fkey(nome), itens_pedido(quantidade_original)")
+      .select("id, numero_pedido, status, tipo_cobranca, quem_contou, criado_em, coletado_em, embalado_em, obs_cliente, obs_motorista, obs_producao, peso_kg, peso_motorista_kg, valor_total, motorista_id, cliente_id, clientes(nome, tipo), usuarios!pedidos_motorista_id_fkey(nome), itens_pedido(quantidade_original, tipo_roupa_id, descricao_livre)")
       .order("criado_em", { ascending: false })
       .limit(200);
-    setOrders((data as unknown as Order[]) || []);
+    const pedidos = (data as unknown as Order[]) || [];
+    if (pedidos.length === 0) { setOrders([]); return; }
+
+    const clienteIds = Array.from(new Set(pedidos.map((p) => p.cliente_id).filter(Boolean)));
+    const [{ data: precos }, { data: cls }] = await Promise.all([
+      supabase.from("precos_cliente").select("cliente_id, tipo_roupa_id, preco_unitario, tipos_roupa(nome)").in("cliente_id", clienteIds),
+      supabase.from("clientes").select("id, valor_por_kg, tarifa_minima").in("id", clienteIds),
+    ]);
+
+    const precoPorTipo = new Map<string, number>();
+    const precoPorNome = new Map<string, number>();
+    ((precos as any[]) || []).forEach((p) => {
+      const val = Number(p.preco_unitario) || 0;
+      if (val <= 0) return;
+      if (p.tipo_roupa_id) precoPorTipo.set(`${p.cliente_id}|${p.tipo_roupa_id}`, val);
+      const nome = p.tipos_roupa?.nome;
+      if (nome) precoPorNome.set(`${p.cliente_id}|${String(nome).trim().toLowerCase()}`, val);
+    });
+    const kgPorCliente = new Map<string, number>();
+    ((cls as any[]) || []).forEach((c) => {
+      const v = Number(c.valor_por_kg) || 0;
+      if (v > 0) kgPorCliente.set(c.id, v);
+    });
+
+    const withCalc = pedidos.map((o) => {
+      let calc: number | null = null;
+      if (o.tipo_cobranca === "peso") {
+        const kg = Number(o.peso_motorista_kg ?? o.peso_kg ?? 0);
+        const preco = kgPorCliente.get(o.cliente_id);
+        if (kg > 0 && preco) calc = kg * preco;
+      } else {
+        let total = 0;
+        (o.itens_pedido || []).forEach((it) => {
+          const qtd = Number(it.quantidade_original) || 0;
+          const preco =
+            (it.tipo_roupa_id ? precoPorTipo.get(`${o.cliente_id}|${it.tipo_roupa_id}`) : undefined) ??
+            (it.descricao_livre ? precoPorNome.get(`${o.cliente_id}|${it.descricao_livre.trim().toLowerCase()}`) : undefined);
+          if (preco) total += qtd * preco;
+        });
+        if (total > 0) calc = total;
+      }
+      return { ...o, valor_calculado: calc };
+    });
+    setOrders(withCalc);
   };
 
   useEffect(() => {
