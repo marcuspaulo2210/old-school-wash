@@ -87,7 +87,7 @@ const AdminDashboard = () => {
     { label: "Divergências", value: stats.divergencias, color: "#e05050", bg: "rgba(224,80,80,0.12)", icon: AlertTriangle },
   ];
 
-  const hasObs = (o: Order) => !!(o.obs_cliente || o.obs_motorista || o.obs_producao);
+  
 
   const statusTabs = [
     { key: "todos", label: "Todos" },
