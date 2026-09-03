@@ -50,6 +50,8 @@ interface NewProdItem {
   descricao: string;
   quantidade: number;
   observacao: string;
+  tipoRoupaId?: string | null;
+  fixo?: boolean;
 }
 
 interface TipoRoupa { id: string; nome: string; }
@@ -159,7 +161,20 @@ const ProducaoDashboard = () => {
     const { data } = await supabase.from("itens_pedido")
       .select("id, tipo_roupa_id, descricao_livre, quantidade_original, quantidade_conferida, diferenca, origem, tipos_roupa(nome)")
       .eq("pedido_id", order.id);
-    setItems((data as unknown as ItemPedido[]) || []);
+    const itensPedido = (data as unknown as ItemPedido[]) || [];
+    setItems(itensPedido);
+
+    // Sem itens do cliente (hospital/peso): listar os tipos de roupa do admin para registro
+    if (itensPedido.length === 0) {
+      const { data: tipos } = await supabase.from("tipos_roupa").select("id, nome").eq("ativo", true).order("nome");
+      setNewProdItems(((tipos as any[]) || []).map(t => ({
+        descricao: t.nome,
+        quantidade: 0,
+        observacao: "",
+        tipoRoupaId: t.id,
+        fixo: true,
+      })));
+    }
   };
 
   const updateChecked = (itemId: string, value: number) => {
@@ -173,7 +188,7 @@ const ProducaoDashboard = () => {
 
   const hasDivergence = items.some((i) => { const d = getDiff(i); return d !== null && d !== 0; });
 
-  const addProdItem = () => setNewProdItems([...newProdItems, { descricao: "", quantidade: 1, observacao: "" }]);
+  const addProdItem = () => setNewProdItems([...newProdItems, { descricao: "", quantidade: 1, observacao: "", tipoRoupaId: null, fixo: false }]);
   const removeProdItem = (idx: number) => setNewProdItems(newProdItems.filter((_, i) => i !== idx));
 
   // A produção não lança peso — apenas visualiza o registrado pelo motorista
@@ -194,9 +209,10 @@ const ProducaoDashboard = () => {
     }
 
     if (newProdItems.length > 0) {
-      const prodItems = newProdItems.filter(pi => pi.descricao.trim()).map(pi => ({
+      const prodItems = newProdItems.filter(pi => pi.descricao.trim() && pi.quantidade > 0).map(pi => ({
         pedido_id: selectedOrder.id,
-        descricao_livre: pi.descricao,
+        tipo_roupa_id: pi.tipoRoupaId || null,
+        descricao_livre: pi.tipoRoupaId ? null : pi.descricao.trim(),
         quantidade_original: pi.quantidade,
         origem: "producao",
       }));
@@ -225,9 +241,10 @@ const ProducaoDashboard = () => {
     }
 
     if (newProdItems.length > 0) {
-      const prodItems = newProdItems.filter(pi => pi.descricao.trim()).map(pi => ({
+      const prodItems = newProdItems.filter(pi => pi.descricao.trim() && pi.quantidade > 0).map(pi => ({
         pedido_id: selectedOrder.id,
-        descricao_livre: pi.descricao,
+        tipo_roupa_id: pi.tipoRoupaId || null,
+        descricao_livre: pi.tipoRoupaId ? null : pi.descricao.trim(),
         quantidade_original: pi.quantidade,
         origem: "producao",
       }));
@@ -721,10 +738,16 @@ const ProducaoDashboard = () => {
               </div>
             )}
 
-            {/* Conferência por peças (clínica) */}
-            {!isPesoOrder && (
+            {/* Conferência por peças (clínica) / registro de peças recebidas (hospital) */}
+            {(
               <>
-                {items.length === 0 && newProdItems.length === 0 ? (
+                {items.length === 0 && (isPesoOrder || selectedOrder.clientes?.tipo === "hospital") && (
+                  <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(91,141,246,0.12)", color: "#5b8df6" }}>
+                    Hospital: registre as peças recebidas abaixo
+                  </div>
+                )}
+
+                {items.length === 0 && newProdItems.length === 0 && !isPesoOrder && selectedOrder.clientes?.tipo !== "hospital" ? (
                   <div className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: "rgba(240,160,32,0.12)", color: "#f0a020" }}>
                     ⚠ Nenhum item cadastrado pelo cliente
                   </div>
@@ -761,14 +784,21 @@ const ProducaoDashboard = () => {
 
                 {newProdItems.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">Peças adicionadas pela produção</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Peças recebidas (registro da produção)</p>
                     {newProdItems.map((pi, idx) => (
                       <div key={idx} className="flex gap-2 items-center">
-                        <input className="field-input flex-1 text-xs py-2" value={pi.descricao} onChange={(e) => setNewProdItems(prev => prev.map((p, i) => i === idx ? { ...p, descricao: e.target.value } : p))} placeholder="Descrição da peça" />
-                        <input type="number" className="field-input w-16 text-center font-mono text-xs py-2" min={1} value={pi.quantidade} onChange={(e) => setNewProdItems(prev => prev.map((p, i) => i === idx ? { ...p, quantidade: parseInt(e.target.value) || 0 } : p))} />
-                        <button onClick={() => removeProdItem(idx)} className="p-1.5 rounded-lg" style={{ color: "#e05050" }}><X className="w-4 h-4" /></button>
+                        {pi.fixo ? (
+                          <span className="flex-1 text-sm text-foreground truncate">{pi.descricao}</span>
+                        ) : (
+                          <input className="field-input flex-1 text-xs py-2" value={pi.descricao} onChange={(e) => setNewProdItems(prev => prev.map((p, i) => i === idx ? { ...p, descricao: e.target.value } : p))} placeholder="Descrição da peça" />
+                        )}
+                        <input type="number" className="field-input w-16 text-center font-mono text-xs py-2" min={0} value={pi.quantidade} onChange={(e) => setNewProdItems(prev => prev.map((p, i) => i === idx ? { ...p, quantidade: parseInt(e.target.value) || 0 } : p))} />
+                        {!pi.fixo && (
+                          <button onClick={() => removeProdItem(idx)} className="p-1.5 rounded-lg" style={{ color: "#e05050" }}><X className="w-4 h-4" /></button>
+                        )}
                       </div>
                     ))}
+                    <p className="text-[11px] text-muted-foreground">Tipos com quantidade 0 são ignorados.</p>
                   </div>
                 )}
 
