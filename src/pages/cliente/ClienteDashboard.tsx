@@ -550,7 +550,7 @@ const ClienteDashboard = () => {
       {profile?.cliente_id && <ClienteSaldoRoupas clienteId={profile.cliente_id} />}
 
       {!showForm ? (
-        <button className="btn-primary w-full btn-lg mb-5" onClick={() => setShowForm(true)}>
+        <button className="btn-primary w-full btn-lg mb-5" onClick={() => { resetForm(); setShowForm(true); }}>
           <Plus className="w-5 h-5" /> Novo Pedido
         </button>
       ) : (
