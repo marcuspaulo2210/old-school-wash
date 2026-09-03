@@ -67,10 +67,8 @@ const ProducaoDashboard = () => {
   const [searchText, setSearchText] = useState("");
 
   // Production registration tabs
-  const [prodTab, setProdTab] = useState<"pecas" | "peso">("pecas");
 
   // Production weight
-  const [pesoRecebido, setPesoRecebido] = useState("");
 
   // Production items (new items added by production)
   const [newProdItems, setNewProdItems] = useState<NewProdItem[]>([]);
@@ -147,8 +145,6 @@ const ProducaoDashboard = () => {
   const openOrder = async (order: Pedido) => {
     setSelectedOrder(order);
     setProductionNotes("");
-    setPesoRecebido("");
-    setProdTab("pecas");
     setNewProdItems([]);
 
     const { data } = await supabase.from("itens_pedido")
