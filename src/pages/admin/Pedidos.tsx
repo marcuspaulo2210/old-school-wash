@@ -51,6 +51,16 @@ interface Order {
 
 interface Motorista { id: string; nome: string; }
 
+const formatPeso = (order: Order) => {
+  const pm = order.peso_motorista_kg != null ? Number(order.peso_motorista_kg) : null;
+  if (pm != null && pm > 0) return `${pm} kg`;
+  const pk = order.peso_kg != null ? Number(order.peso_kg) : null;
+  if (pk != null && pk > 0) return `${pk} kg`;
+  const pecas = (order.itens_pedido || []).reduce((s, i) => s + (Number(i.quantidade_original) || 0), 0);
+  if (pecas > 0) return `${pecas} pç`;
+  return "—";
+};
+
 const AdminPedidos = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
