@@ -160,6 +160,9 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
         <label className="field-label">Valor por kg lavado (R$)</label>
         <input
           className="field-input font-mono"
+          type="number"
+          step="0.01"
+          min="0"
           inputMode="decimal"
           placeholder="Ex: 12,00"
           value={valorPorKg}
@@ -174,6 +177,9 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
         <label className="field-label">Tarifa mínima mensal (R$)</label>
         <input
           className="field-input font-mono"
+          type="number"
+          step="0.01"
+          min="0"
           inputMode="decimal"
           placeholder="Opcional"
           value={tarifaMinima}

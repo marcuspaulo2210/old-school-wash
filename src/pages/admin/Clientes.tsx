@@ -153,8 +153,8 @@ const Clientes = () => {
           email: email.trim() || null,
           responsavel: responsavel.trim() || null,
           tipo_cobranca: tipoCobranca,
-          preco_peca: precoPeca || 0,
-          preco_kg: precoKg || 0,
+          preco_peca: parseFloat(precoPeca) || 0,
+          preco_kg: parseFloat(precoKg) || 0,
           dias_coleta: diasColeta,
           observacoes: observacoes.trim() || null,
           ativo,
@@ -359,13 +359,13 @@ const Clientes = () => {
             {tipoCobranca === "peca" && (
               <div>
                 <label className="field-label">Preço por peça (R$)</label>
-                <input className="field-input" type="number" step="0.01" value={precoPeca} onChange={(e) => setPrecoPeca(e.target.value)} />
+                <input className="field-input" type="number" step="0.01" min="0" value={precoPeca} onChange={(e) => setPrecoPeca(e.target.value)} />
               </div>
             )}
             {tipoCobranca === "peso" && (
               <div>
                 <label className="field-label">Preço por kg (R$)</label>
-                <input className="field-input" type="number" step="0.01" value={precoKg} onChange={(e) => setPrecoKg(e.target.value)} />
+                <input className="field-input" type="number" step="0.01" min="0" value={precoKg} onChange={(e) => setPrecoKg(e.target.value)} />
               </div>
             )}
           </div>
