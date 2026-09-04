@@ -20,10 +20,10 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
   const [tipos, setTipos] = useState<TipoRow[]>([]);
   const [precos, setPrecos] = useState<Record<string, string>>({});
   const [tarifaMinima, setTarifaMinima] = useState(
-    tarifaMinimaInicial != null ? String(tarifaMinimaInicial) : ""
+    tarifaMinimaInicial != null ? String(Number(tarifaMinimaInicial).toFixed(2)) : ""
   );
   const [valorPorKg, setValorPorKg] = useState(
-    valorPorKgInicial != null ? String(valorPorKgInicial).replace(".", ",") : ""
+    valorPorKgInicial != null ? String(Number(valorPorKgInicial).toFixed(2)) : ""
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,8 +49,8 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
       if (cli) {
         const vk = (cli as any).valor_por_kg;
         const tm = (cli as any).tarifa_minima;
-        setValorPorKg(vk != null ? String(Number(vk)).replace(".", ",") : "");
-        setTarifaMinima(tm != null ? String(Number(tm)).replace(".", ",") : "");
+        setValorPorKg(vk != null ? String(Number(vk).toFixed(2)) : "");
+        setTarifaMinima(tm != null ? String(Number(tm).toFixed(2)) : "");
       }
       setLoading(false);
 
