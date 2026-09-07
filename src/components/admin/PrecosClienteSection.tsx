@@ -66,6 +66,10 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
   };
 
   const salvar = async () => {
+    if (loading) {
+      toast.error("Aguarde o carregamento dos dados do cliente.");
+      return;
+    }
     setSaving(true);
     try {
       const upserts: any[] = [];
