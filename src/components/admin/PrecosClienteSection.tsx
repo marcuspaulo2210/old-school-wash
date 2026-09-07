@@ -66,6 +66,10 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
   };
 
   const salvar = async () => {
+    if (loading) {
+      toast.error("Aguarde o carregamento dos dados do cliente.");
+      return;
+    }
     setSaving(true);
     try {
       const upserts: any[] = [];
@@ -116,11 +120,20 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
         setSaving(false);
         return;
       }
-      const { error: errCli } = await db
+      const { data: updated, error: errCli } = await db
         .from("clientes")
         .update({ tarifa_minima: tm, valor_por_kg: vk })
-        .eq("id", clienteId);
+        .eq("id", clienteId)
+        .select("valor_por_kg, tarifa_minima")
+        .maybeSingle();
       if (errCli) throw errCli;
+      if (!updated) {
+        toast.error("Não foi possível salvar os valores do cliente (sem permissão).");
+        setSaving(false);
+        return;
+      }
+      setValorPorKg(updated.valor_por_kg != null ? String(Number(updated.valor_por_kg).toFixed(2)) : "");
+      setTarifaMinima(updated.tarifa_minima != null ? String(Number(updated.tarifa_minima).toFixed(2)) : "");
 
       toast.success("Tabela de preços salva!");
     } catch (e: any) {
@@ -190,7 +203,7 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
         </p>
       </div>
 
-      <button className="btn-primary w-full" onClick={salvar} disabled={saving}>
+      <button className="btn-primary w-full" onClick={salvar} disabled={saving || loading}>
         <DollarSign className="w-4 h-4" /> {saving ? "Salvando..." : "Salvar tabela de preços"}
       </button>
     </div>
