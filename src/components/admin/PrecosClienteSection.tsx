@@ -203,7 +203,7 @@ const PrecosClienteSection = ({ clienteId, tarifaMinimaInicial, valorPorKgInicia
         </p>
       </div>
 
-      <button className="btn-primary w-full" onClick={salvar} disabled={saving}>
+      <button className="btn-primary w-full" onClick={salvar} disabled={saving || loading}>
         <DollarSign className="w-4 h-4" /> {saving ? "Salvando..." : "Salvar tabela de preços"}
       </button>
     </div>
