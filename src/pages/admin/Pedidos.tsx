@@ -7,6 +7,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { MessageSquare, TruckIcon, X, Pencil } from "lucide-react";
+import EditarPedidoModal from "@/components/admin/EditarPedidoModal";
 import { toast } from "sonner";
 
 interface ItemPedido {
@@ -78,6 +79,7 @@ const AdminPedidos = () => {
   const [resolvingOrder, setResolvingOrder] = useState<Order | null>(null);
   const [editingValorId, setEditingValorId] = useState<string | null>(null);
   const [valorDraft, setValorDraft] = useState("");
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
   const startEditValor = (order: Order) => {
     setEditingValorId(order.id);
@@ -446,10 +448,24 @@ const AdminPedidos = () => {
               </div>
             )}
 
+            <button className="btn-primary w-full flex items-center justify-center gap-2" onClick={() => setEditingOrder(selectedOrder)}>
+              <Pencil className="w-4 h-4" /> Editar pedido
+            </button>
             <button className="btn-ghost w-full" onClick={() => setSelectedOrder(null)}>Fechar</button>
           </div>
         </div>
       )}
+
+      {editingOrder && user && (
+        <EditarPedidoModal
+          pedidoId={editingOrder.id}
+          numeroPedido={editingOrder.numero_pedido}
+          userId={user.id}
+          onClose={() => setEditingOrder(null)}
+          onSaved={() => { setEditingOrder(null); setSelectedOrder(null); fetchOrders(); }}
+        />
+      )}
+
 
       {resolvingOrder && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
