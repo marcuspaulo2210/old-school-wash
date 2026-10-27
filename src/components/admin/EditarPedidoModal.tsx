@@ -94,21 +94,27 @@ const EditarPedidoModal = ({ pedidoId, numeroPedido, userId, onClose, onSaved }:
     if (error) { setSaving(false); toast.error("Erro ao salvar pedido: " + error.message); return; }
 
     const validos = itens.filter((i) => (parseInt(i.quantidade_original) || 0) > 0 && (i.tipo_roupa_id || i.descricao_livre.trim()));
-    const { error: delErr } = await supabase.from("itens_pedido").delete().eq("pedido_id", pedidoId);
-    if (delErr) { setSaving(false); toast.error("Erro ao atualizar peças: " + delErr.message); return; }
+    // Busca os itens antigos para removê-los somente depois que os novos forem gravados
+    const { data: antigos } = await supabase.from("itens_pedido").select("id").eq("pedido_id", pedidoId);
+    const idsAntigos = ((antigos as any[]) || []).map((a) => a.id);
     if (validos.length) {
+      // "diferenca" é calculada automaticamente pelo banco — não enviar
       const rows = validos.map((i) => {
-        const orig = parseInt(i.quantidade_original) || 0;
         const conf = i.quantidade_conferida.trim() ? parseInt(i.quantidade_conferida) : null;
         return {
           pedido_id: pedidoId, tipo_roupa_id: i.tipo_roupa_id,
           descricao_livre: i.tipo_roupa_id ? null : i.descricao_livre.trim(),
-          quantidade_original: orig, quantidade_conferida: conf,
-          diferenca: conf != null && !isNaN(conf) ? conf - orig : null, origem: i.origem,
+          quantidade_original: parseInt(i.quantidade_original) || 0,
+          quantidade_conferida: conf != null && !isNaN(conf) ? conf : null,
+          origem: i.origem || "admin",
         };
       });
       const { error: insErr } = await supabase.from("itens_pedido").insert(rows as any);
       if (insErr) { setSaving(false); toast.error("Erro ao salvar peças: " + insErr.message); return; }
+    }
+    if (idsAntigos.length) {
+      const { error: delErr } = await supabase.from("itens_pedido").delete().in("id", idsAntigos);
+      if (delErr) { setSaving(false); toast.error("Erro ao atualizar peças: " + delErr.message); return; }
     }
     if (status !== statusOriginal) {
       await registrarMudancaStatus(pedidoId, statusOriginal as any, status as any, userId, "Status alterado pelo admin (edição)");
