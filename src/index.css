@@ -235,5 +235,29 @@
     box-shadow: none !important;
   }
   .btn-imprimir { display: none !important; }
-  @page { size: A4; margin: 14mm; }
+  html, body { height: auto !important; overflow: visible !important; }
+  .recibo-overlay {
+    position: static !important;
+    overflow: visible !important;
+    background: none !important;
+    padding: 0 !important;
+  }
+  .recibo-overlay > div { max-width: none !important; }
+  .recibo-print { padding: 0 !important; border-radius: 0 !important; }
+  .recibo-print table { width: 100%; }
+  .recibo-print thead { display: table-header-group; }
+  .recibo-print tfoot { display: table-row-group; }
+  .recibo-print tr { break-inside: avoid; page-break-inside: avoid; }
+  .recibo-print tfoot, .recibo-print .text-center { break-inside: avoid; }
+  .recibo-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ===== Modo compacto (1 página) ===== */
+.recibo-compacto { font-size: 11px; }
+.recibo-compacto img { max-width: 110px !important; }
+.recibo-compacto h1 { font-size: 15px !important; }
+.recibo-compacto .text-sm { font-size: 11px !important; }
+.recibo-compacto td, .recibo-compacto th { padding: 3px 6px !important; font-size: 10.5px; }
+.recibo-compacto [style*="margin: 14px 0"] { margin: 6px 0 !important; }
+.recibo-compacto .space-y-1 > * + * { margin-top: 0 !important; }
+.recibo-compacto .text-xs { font-size: 9.5px !important; }

@@ -55,6 +55,8 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
   const [open, setOpen] = useState(false);
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
+  const [orientacao, setOrientacao] = useState<"retrato" | "paisagem">("paisagem");
+  const [compacto, setCompacto] = useState(false);
 
   const cliente = clientes.find((c) => c.id === clienteId);
   const tarifaMinima = cliente?.tarifa_minima != null ? Number(cliente.tarifa_minima) : null;
@@ -194,12 +196,32 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4">
-          <div className="mx-auto max-w-[820px]">
-            <div className="flex justify-between items-center mb-3 btn-imprimir">
+        <div className="recibo-overlay fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4">
+          <style>{`@media print { @page { size: A4 ${orientacao === "paisagem" ? "landscape" : "portrait"}; margin: ${compacto ? "7mm" : "12mm"}; } }`}</style>
+          <div className="mx-auto" style={{ maxWidth: orientacao === "paisagem" ? 1100 : 820 }}>
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-3 btn-imprimir">
+              <div className="flex flex-wrap items-center gap-2">
               <button className="btn-primary" onClick={() => window.print()}>
                 <Printer className="w-4 h-4" /> Imprimir recibo
               </button>
+              <div className="inline-flex rounded-lg border border-border overflow-hidden">
+                {(["retrato", "paisagem"] as const).map((o) => (
+                  <button key={o} onClick={() => setOrientacao(o)}
+                    className={`px-3 py-2 text-xs font-semibold ${orientacao === o ? "bg-primary text-primary-foreground" : "bg-card text-foreground"}`}>
+                    {o === "retrato" ? "Em pé (Retrato)" : "Deitada (Paisagem)"}
+                  </button>
+                ))}
+              </div>
+              <button className="btn-secondary" disabled={compacto} onClick={() => {
+                const todos = linhas.every((l) => expandido[l.id]);
+                setExpandido(todos ? {} : Object.fromEntries(linhas.map((l) => [l.id, true])));
+              }}>
+                {linhas.length > 0 && linhas.every((l) => expandido[l.id]) ? "Recolher todos" : "Expandir todos"}
+              </button>
+              <button className={compacto ? "btn-primary" : "btn-secondary"} onClick={() => setCompacto((c) => !c)}>
+                {compacto ? "✓ " : ""}Caber em 1 página (Resumido)
+              </button>
+              </div>
               <button className="p-2 rounded-lg bg-card border border-[rgba(255,255,255,0.1)] text-foreground" onClick={() => setOpen(false)}>
                 <X className="w-4 h-4" />
               </button>
@@ -212,7 +234,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
               </div>
             )}
 
-            <div className="recibo-print bg-white text-[#111] rounded-lg p-10" style={{ fontFamily: "system-ui, sans-serif" }}>
+            <div className={`recibo-print bg-white text-[#111] rounded-lg ${compacto ? "recibo-compacto p-5" : "p-10"}`} style={{ fontFamily: "system-ui, sans-serif" }}>
               {/* Cabeçalho */}
               <div className="text-center">
                 <img src={logo} alt="Amaná Lavanderia Hospitalar" style={{ maxWidth: 180, height: "auto", objectFit: "contain", margin: "0 auto" }} />
@@ -270,7 +292,7 @@ const ReciboMensal = ({ clientes }: { clientes: ClienteOpt[] }) => {
                         </td>
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: 700 }}>R$ {brl(l.total)}</td>
                       </tr>
-                      {(expandido[l.id] || l.itens.length > 0) && (
+                      {!compacto && (expandido[l.id] || l.itens.length > 0) && (
                         <tr className={expandido[l.id] ? "" : "detalhe-recibo"} style={{ background: "#fff", display: expandido[l.id] ? undefined : "none" }}>
                           <td colSpan={4} style={{ padding: "4px 8px 10px 24px" }}>
                             {l.itens.length === 0 && <span style={{ color: "#888" }}>Sem itens registrados</span>}
